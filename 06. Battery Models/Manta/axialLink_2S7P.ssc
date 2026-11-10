@@ -1,0 +1,33 @@
+component axialLink_2S7P
+% Slice-to-slice thermal links: cell i of one slice to cell i (same position) of the next.
+% Port A: 14-node CPB of this slice. Port B: 14-node CPB of the next slice. 14 links.
+% Generated 2026-11-09. Same model index = same position, as both slices use the same topology.
+% Resistance is a PLACEHOLDER: 9.75 mm end-to-end gap through PLA (k = 0.2 W/m/K) over the cell end area.
+% Metal busbars bridging the gap would make this much lower.
+
+parameters
+    R = {180.4, 'K/W'}; % Thermal resistance of each slice-to-slice link
+end
+
+for i = 1:14
+    nodes
+        A(i) = foundation.thermal.thermal; % A:left
+    end
+end
+
+for i = 1:14
+    nodes
+        B(i) = foundation.thermal.thermal; % B:right
+    end
+end
+
+for i = 1:14
+    components(ExternalAccess = observe)
+        link(i) = foundation.thermal.elements.resistance(resistance = R);
+    end
+    connections
+        connect(link(i).A, A(i)); connect(link(i).B, B(i));
+    end
+end
+
+end

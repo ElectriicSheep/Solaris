@@ -1,0 +1,60 @@
+component tubeAmbient
+% Ambient model for one battery tube: internal air, aluminium hull, seawater.
+% Generated 2026-11-09. ALL VALUES ARE PLACEHOLDER ESTIMATES (derivations below).
+%
+%   Air  : air inside the tube. Connect the battery AmbH port (cell-to-air path,
+%          set per cell by AmbientResistance in the params file). Electronics heat
+%          can be added here later with a Heat Flow Source.
+%   Hull : aluminium hull node. Connect the battery HullH port (outer-row cells).
+%   Sea  : seawater. Connect a (Controlled) Temperature Source.
+%
+% Air -> hull : natural convection, h = 5 W/m^2/K over the inner wall
+%               (pi x 0.150 m x 0.55 m = 0.259 m^2)             -> 0.772 K/W
+% Hull -> sea : wall conduction ln(81/75)/(2 pi 167 W/m/K x 0.55 m) = 1.33e-04 K/W
+%               + external convection h = 500 W/m^2/K over 0.280 m^2 = 0.0071 K/W
+%               (h_out is for a moving vehicle; stationary water is lower, ~100-200)
+% Hull mass   : 6 mm x 150 mm ID x 0.55 m aluminium tube, 4.37 kg x 896 J/kg/K (end caps excluded)
+% Air mass    : ~6 L free air x 1.2 kg/m^3 x 1005 J/kg/K (free volume is a guess)
+
+parameters
+    R_air_hull = {0.772, 'K/W'};   % Air-to-hull thermal resistance
+    R_hull_sea = {0.0073, 'K/W'};  % Hull-to-seawater thermal resistance
+    C_air      = {7.2, 'J/K'};     % Thermal mass of internal air
+    C_hull     = {3913, 'J/K'};    % Thermal mass of hull
+end
+
+nodes
+    Air  = foundation.thermal.thermal; % Air:left
+    Hull = foundation.thermal.thermal; % Hull:left
+    Sea  = foundation.thermal.thermal; % Sea:right
+end
+
+variables
+    T_air  = {value = {273.15, 'K'}, priority = priority.high}; % Initial air temperature
+    T_hull = {value = {273.15, 'K'}, priority = priority.high}; % Initial hull temperature
+end
+
+variables (Access = private)
+    Q_air      = {0, 'W'}; % Heat stored in air
+    Q_hull     = {0, 'W'}; % Heat stored in hull
+    Q_air_hull = {0, 'W'}; % Heat flow air to hull
+    Q_hull_sea = {0, 'W'}; % Heat flow hull to sea
+end
+
+branches
+    Q_air      : Air.Q  -> *;
+    Q_hull     : Hull.Q -> *;
+    Q_air_hull : Air.Q  -> Hull.Q;
+    Q_hull_sea : Hull.Q -> Sea.Q;
+end
+
+equations
+    T_air  == Air.T;
+    T_hull == Hull.T;
+    Q_air      == C_air  * T_air.der;
+    Q_hull     == C_hull * T_hull.der;
+    Q_air_hull == (Air.T  - Hull.T) / R_air_hull;
+    Q_hull_sea == (Hull.T - Sea.T)  / R_hull_sea;
+end
+
+end

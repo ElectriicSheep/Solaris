@@ -1,0 +1,44 @@
+component cellPairs_2S7P
+% Cell-to-cell thermal network within one 2S7P slice (14 cells, 17 neighbour pairs).
+% Generated 2026-11-09 from topology_slice_2S7P_rev2.csv. Neighbours: surface gap < 4.5 mm.
+% Port H connects to the module's CPB port (one node per cell, model cell order).
+% Resistances are PLACEHOLDERS: R = gap/(k*w*h), k = 0.2 W/m/K (PLA), w = 5 mm, h = 65.25 mm.
+% Model index -> CSV CellID: 6 3 7 2 5 1 4 9 12 8 13 10 11 14
+
+parameters
+    R = {[61.73 54.15 61.73 57.32 61.72 58.62 58.63 55.64 58.64 55.64 58.63 61.72 58.62 57.32 54.15 61.73 61.73], 'K/W'}; % Pair thermal resistances, in the order listed below
+end
+
+for i = 1:14
+    nodes
+        H(i) = foundation.thermal.thermal; % H:top
+    end
+end
+
+for k = 1:17
+    components(ExternalAccess = observe)
+        pair(k) = foundation.thermal.elements.resistance(resistance = R(k));
+    end
+end
+
+connections
+    connect(pair(1).A, H(6)); connect(pair(1).B, H(4)); % pair 1: CSV 1-2, gap 4.03 mm
+    connect(pair(2).A, H(6)); connect(pair(2).B, H(7)); % pair 2: CSV 1-4, gap 3.53 mm
+    connect(pair(3).A, H(4)); connect(pair(3).B, H(2)); % pair 3: CSV 2-3, gap 4.03 mm
+    connect(pair(4).A, H(2)); connect(pair(4).B, H(5)); % pair 4: CSV 3-5, gap 3.74 mm
+    connect(pair(5).A, H(2)); connect(pair(5).B, H(1)); % pair 5: CSV 3-6, gap 4.03 mm
+    connect(pair(6).A, H(7)); connect(pair(6).B, H(5)); % pair 6: CSV 4-5, gap 3.82 mm
+    connect(pair(7).A, H(5)); connect(pair(7).B, H(3)); % pair 7: CSV 5-7, gap 3.83 mm
+    connect(pair(8).A, H(1)); connect(pair(8).B, H(3)); % pair 8: CSV 6-7, gap 3.63 mm
+    connect(pair(9).A, H(3)); connect(pair(9).B, H(10)); % pair 9: CSV 7-8, gap 3.83 mm
+    connect(pair(10).A, H(10)); connect(pair(10).B, H(8)); % pair 10: CSV 8-9, gap 3.63 mm
+    connect(pair(11).A, H(10)); connect(pair(11).B, H(12)); % pair 11: CSV 8-10, gap 3.83 mm
+    connect(pair(12).A, H(8)); connect(pair(12).B, H(9)); % pair 12: CSV 9-12, gap 4.03 mm
+    connect(pair(13).A, H(12)); connect(pair(13).B, H(13)); % pair 13: CSV 10-11, gap 3.82 mm
+    connect(pair(14).A, H(12)); connect(pair(14).B, H(9)); % pair 14: CSV 10-12, gap 3.74 mm
+    connect(pair(15).A, H(13)); connect(pair(15).B, H(14)); % pair 15: CSV 11-14, gap 3.53 mm
+    connect(pair(16).A, H(9)); connect(pair(16).B, H(11)); % pair 16: CSV 12-13, gap 4.03 mm
+    connect(pair(17).A, H(11)); connect(pair(17).B, H(14)); % pair 17: CSV 13-14, gap 4.03 mm
+end
+
+end
