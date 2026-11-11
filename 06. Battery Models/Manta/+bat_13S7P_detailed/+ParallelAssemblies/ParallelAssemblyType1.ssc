@@ -4,9 +4,9 @@ component ParallelAssemblyType1
     %    Model resolution: Detailed
     %    Number of cells: 7
     %
-    %    MATLAB version: 26.2
-    %    Simscape Battery version: 26.2
-    %    Simscape code generated on: 09-Nov-2026 16:49:21
+    %    MATLAB version: 25.2
+    %    Simscape Battery version: 25.2
+    %    Simscape code generated on: 11-Nov-2026 18:48:20
 
     parameters
         BatteryCapacityCell = {27,'A*hr'}; % Battery capacity
@@ -24,16 +24,13 @@ component ParallelAssemblyType1
         AmbientResistance = {25,'K/W'}; % Cell level ambient thermal path resistance
     end
 
-    parameters(Access=private,ExternalAccess=none)
+    parameters(ExternalAccess=none)
         P = 7; % Batteries in Parallel
+        NumCellThermalNodeElements = size(cell_35E(1).H,1); % NumCellThermalNodeElements
     end
 
     parameters(Access=private)
         AmbientResistanceScaled = AmbientResistance .* ones(NumCellThermalNodeElements,P) * NumCellThermalNodeElements / size(AmbientResistance,1); % Scaled cell level ambient thermal path resistance
-    end
-
-    parameters(ExternalAccess=none)
-        NumCellThermalNodeElements = size(cell_Samsung_35E(1).H,1); % NumCellThermalNodeElements
     end
 
     nodes
@@ -62,8 +59,8 @@ component ParallelAssemblyType1
         assert(length(socParallelAssembly) == 1);
         assert(isequal(size(AmbientResistance),[1,1]) || isequal(size(AmbientResistance),[NumCellThermalNodeElements,P]),...
             'Cell level ambient thermal path resistance must be scalar or an M-by-N array, where M is the number of elements of the cell thermal node and N is number of cells modeled by the block.');
-        vParallelAssembly == cell_Samsung_35E(1).p.v - cell_Samsung_35E(1).n.v;
-        socParallelAssembly == sum([cell_Samsung_35E.stateOfCharge])/P;
+        vParallelAssembly == cell_35E(1).p.v - cell_35E(1).n.v;
+        socParallelAssembly == sum([cell_35E.stateOfCharge])/P;
     end
 
     annotations
@@ -79,14 +76,13 @@ component ParallelAssemblyType1
 
     for Pidx = 1:P
         components(ExternalAccess=observe,CompileReuse=true)
-            cell_Samsung_35E(Pidx) = batt.cells.batteryEquivalentCircuit(BatteryCapacity = BatteryCapacityCell,...
-                ExtrapolationMethod = ExtrapolationMethodCell,SOCBreakpoints = SOCBreakpointsCell,...
-                TemperatureBreakpoints = TemperatureBreakpointsCell,...
-                OpenCircuitVoltageThermal = OpenCircuitVoltageThermalCell,VoltageRange = VoltageRangeCell,...
+            cell_35E(Pidx) = batt.cells.batteryEquivalentCircuit(BatteryCapacity = BatteryCapacityCell,ExtrapolationMethod = ExtrapolationMethodCell,...
+                SOCBreakpoints = SOCBreakpointsCell,...
+                TemperatureBreakpoints = TemperatureBreakpointsCell,OpenCircuitVoltageThermal = OpenCircuitVoltageThermalCell,...
+                VoltageRange = VoltageRangeCell,...
                 ResistanceSOCBreakpoints = ResistanceSOCBreakpointsCell,...
-                ResistanceTemperatureBreakpoints = ResistanceTemperatureBreakpointsCell,R0Thermal = R0ThermalCell,...
-                R1Thermal = R1ThermalCell,Tau1Thermal = Tau1ThermalCell,...
-                BatteryThermalMass = BatteryThermalMassCell,...
+                ResistanceTemperatureBreakpoints = ResistanceTemperatureBreakpointsCell,R0Thermal = R0ThermalCell,R1Thermal = R1ThermalCell,...
+                Tau1Thermal = Tau1ThermalCell,BatteryThermalMass = BatteryThermalMassCell,...
                 CurrentDependence = simscape.battery.enum.cells.CurrentDependence.Disabled,...
                 SelfDischargeResistor = simscape.battery.enum.cells.BatteryEnable.Disabled,RCPairs = simscape.battery.enum.cells.RCPairs.rc1,...
                 CyclingAgingMethod = simscape.battery.enum.cells.CyclingAgingMethod.disabled,...
@@ -98,25 +94,24 @@ component ParallelAssemblyType1
                 CalendarAgingMethod = simscape.battery.enum.cells.CalendarAgingMethod.equation,...
                 StorageVariable = simscape.battery.enum.cells.StorageVariable.OCV,stateOfCharge.priority = priority.none,...
                 batteryVoltage.priority = priority.none,batteryCurrent.priority = priority.none,...
-                numCycles.priority = priority.none,...
-                batteryTemperature.priority = priority.none);
+                numCycles.priority = priority.none,batteryTemperature.priority = priority.none);
         end
     end
 
     for Pidx = 1:P
         connections
-            connect(p,cell_Samsung_35E(Pidx).p);
-            connect(cell_Samsung_35E(Pidx).n,n);
+            connect(p,cell_35E(Pidx).p);
+            connect(cell_35E(Pidx).n,n);
         end
     end
 
     for Pidx = 1:P
         equations
-            cell_Samsung_35E(Pidx).stateOfCharge == socCell(Pidx);
-            cell_Samsung_35E(Pidx).batteryVoltage == batteryVoltage(Pidx);
-            cell_Samsung_35E(Pidx).batteryCurrent == batteryCurrent(Pidx);
-            cell_Samsung_35E(Pidx).numCycles == numCycles(Pidx);
-            cell_Samsung_35E(Pidx).batteryTemperature == batteryTemperature(Pidx);
+            cell_35E(Pidx).stateOfCharge == socCell(Pidx);
+            cell_35E(Pidx).batteryVoltage == batteryVoltage(Pidx);
+            cell_35E(Pidx).batteryCurrent == batteryCurrent(Pidx);
+            cell_35E(Pidx).numCycles == numCycles(Pidx);
+            cell_35E(Pidx).batteryTemperature == batteryTemperature(Pidx);
         end
     end
 
@@ -128,7 +123,7 @@ component ParallelAssemblyType1
 
     for Pidx = 1:P
         connections
-            connect(cell_Samsung_35E(Pidx).H(end),BottomExtClnt(Pidx));
+            connect(cell_35E(Pidx).H(end),BottomExtClnt(Pidx));
         end
     end
 
@@ -140,7 +135,7 @@ component ParallelAssemblyType1
             end
 
             connections
-                connect(cell_Samsung_35E(Pidx).H(thermalNodeElementIdx),AmbientResistor(thermalNodeElementIdx,Pidx).A);
+                connect(cell_35E(Pidx).H(thermalNodeElementIdx),AmbientResistor(thermalNodeElementIdx,Pidx).A);
                 connect(AmbientResistor(thermalNodeElementIdx,Pidx).B,AmbH);
             end
         end
