@@ -6,9 +6,12 @@
 % monitoring IC, a shunt + power-monitor IC and glued NTC thermistors).
 % Replace with datasheet values once parts are chosen.
 %
-% Set sens.enableErrors = 0 for ideal sensors (baseline runs).
+% Default for sensor errors: set on the "if" line below (0 = ideal sensors).
 
-sens.enableErrors = 1;      % 1 = apply errors, 0 = ideal sensors
+% 1 = apply errors, 0 = ideal sensors. Test scripts override this by setting
+% SENS_enableErrors in the base workspace before simulating.
+if ~exist("SENS_enableErrors", "var"), SENS_enableErrors = 1; end
+sens.enableErrors = SENS_enableErrors;
 rng(1);                     % fixed seed: same per-channel offsets every run
 
 %% Sample times (s)
