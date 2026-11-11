@@ -24,7 +24,8 @@ sens.V_noiseVar = sens.enableErrors * (0.5e-3)^2;   % V^2, 0.5 mV RMS
 sens.V_lsb    = 100e-6;                             % V, quantisation step
 sens.V_seed   = 100 + (1:nV)';                      % noise seeds
 
-%% Pack current (1 channel). Sign: same as the plant current sensor.
+%% Pack current (1 channel). Output is DISCHARGE POSITIVE.
+sens.I_sign     = 1;                                % +1 or -1: set so that discharge reads positive (verify in Step 4)
 sens.I_offset   = sens.enableErrors * 0.02;         % A, fixed offset (20 mA)
 sens.I_gain     = 1 + sens.enableErrors * 0.002;    % -, +0.2 % (shunt tolerance)
 sens.I_noiseVar = sens.enableErrors * (0.01)^2;     % A^2, 10 mA RMS
