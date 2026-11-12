@@ -16,6 +16,8 @@
 %   4. every other cell warms less than those, and Module1 and module_1S7P
 %      (elements 1-14 and 85-91) hardly at all
 %   5. no cell drops below its baseline (heat only flows from the hot cell)
+% Runs with identical cells (PLANT_cellVariation = 0): with heterogeneous cells the
+% Module2/Module4 symmetry check would not hold.
 % These are ORDERING checks taken from the topology, not checks of the absolute
 % values: the resistances are placeholders.
 %
@@ -41,10 +43,11 @@ base = base.setVariable("LOAD_iConst", 0);
 hotIn = base.setBlockParameter(m3{1}, "batteryTemperature", ...
     sprintf("T0*ones(14,1) + %g*((1:14)'==5)", dHot));
 
-SENS_enableErrors = 0;                                   %#ok<NASGU> read by sensor_params
+SENS_enableErrors   = 0;                                 %#ok<NASGU> read by sensor_params
+PLANT_cellVariation = 0;   %#ok<NASGU> identical cells: the symmetry check needs them (read by plant_params)
 out0 = sim(base);
 out1 = sim(hotIn);
-clear SENS_enableErrors
+clear SENS_enableErrors PLANT_cellVariation
 
 [t0, T0log] = getLoggedSignal(out0, "tCell", "PLANT");
 [t1, T1log] = getLoggedSignal(out1, "tCell", "PLANT");

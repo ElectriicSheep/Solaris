@@ -51,7 +51,8 @@ cellParams.BatteryThermalMassCell               = 43.2;            % J/K, estima
 % Cell to INTERNAL AIR (the AmbH port -> tubeAmbient Air node), K/W. PLACEHOLDER.
 % Natural convection h = 5 W/m^2/K over half the cell side area
 % (assumes the carriage covers the other half): 1/(5 x 0.5 x 3.80e-3 m^2) = ~105 K/W.
-% Outer-row cells also have a path to the hull through the hullContact_* blocks.
+% There is currently NO separate hull path: all cell-to-ambient heat flows through
+% this resistance to the fixed ambient temperature (PLANT_tAmbient).
 cellParams.AmbientResistance                    = 105;
 % Cell-to-cell and slice-to-slice heat paths are NOT set here: they are the
 % R parameters of the cellPairs_* and axialLink_* blocks (placeholders).
@@ -61,17 +62,33 @@ paramNames = who('-regexp','^(ModuleType|ParallelAssemblyType)\d+$');
 assert(~isempty(paramNames), ...
     'No ModuleType/ParallelAssemblyType variables found. Check generatedParamFile.')
 fieldsToSet = fieldnames(cellParams);
-for k = 1:numel(paramNames)
-    s = eval(paramNames{k});
-    for j = 1:numel(fieldsToSet)
-        s.(fieldsToSet{j}) = cellParams.(fieldsToSet{j});
+for ptIdx = 1:numel(paramNames)
+    ptSet = eval(paramNames{ptIdx});
+    for fIdx = 1:numel(fieldsToSet)
+        ptSet.(fieldsToSet{fIdx}) = cellParams.(fieldsToSet{fIdx});
     end
-    eval([paramNames{k} ' = s;']);
+    eval([paramNames{ptIdx} ' = ptSet;']);
 end
 
-%% 4. Optional: different values per slice (ModuleType1 = slice 1 ... ModuleType7 = half slice)
-% ModuleType1.AmbientResistance = 20;
-% ModuleType7.AmbientResistance = 20;
+%% 4. One parameter set per module block (homogeneous: all identical)
+% Each module block reads its own set, batMod(m), m = 1..7 in pack order:
+%   1 = module_2S7P, 2..6 = Module2..Module6, 7 = module_1S7P (half slice).
+% Here every set is the same (identical cells). For cell-to-cell variation run
+% bat_35E_13S7P_placeholder_params_hetero.m instead (plant_params.m chooses).
+% AmbientResistance is stored per cell (1 x cells), the only parameter the generated
+% blocks accept per cell; all others are per module.
+modTypeNames = ["ModuleType1" "ModuleType1" "ModuleType1" "ModuleType1" ...
+                "ModuleType1" "ModuleType1" "ModuleType2"];
+modCellCount = [14 14 14 14 14 14 7];
+clear batMod
+for mIdx = 1:numel(modTypeNames)
+    modSet = orderfields(eval(modTypeNames(mIdx)));
+    modSet.AmbientResistance = modSet.AmbientResistance(1) * ones(1, modCellCount(mIdx));
+    batMod(mIdx) = modSet; %#ok<SAGROW>
+end
 
-% SOC0 and T0 are kept for the module initial conditions
-clear generatedParamFile soc temp ocv r0 r1 tau1 cellParams paramNames fieldsToSet s j k
+% SOC0 and T0 are kept for the module initial conditions. Names cleared here are
+% local to this file (do not add common names such as k: this runs in the base
+% workspace from the model's InitFcn).
+clear generatedParamFile soc temp ocv r0 r1 tau1 cellParams paramNames fieldsToSet ptIdx ptSet fIdx ...
+      modTypeNames modCellCount mIdx modSet
