@@ -26,9 +26,9 @@ hotGlobal = 33;         % expected element of the 91 for Module3, model cell 5
 load_system(mdl);
 
 % Find Module3 inside the battery block (works through masks and links)
-m3 = find_system(mdl + "/PLANT", "LookUnderMasks", "all", "FollowLinks", "on", ...
+m3 = find_system(mdl, "MatchFilter", @Simulink.match.allVariants, "LookUnderMasks", "all", "FollowLinks", "on", ...
     "RegExp", "on", "Name", "^Module3$");
-assert(isscalar(m3), "Could not find a single block named Module3 inside PLANT.");
+assert(isscalar(m3), "Could not find a single block named Module3 in the model.");
 hotExpr = sprintf("T0*ones(14,1) + %g*((1:14)'==5)", dHot);
 
 in = Simulink.SimulationInput(mdl);

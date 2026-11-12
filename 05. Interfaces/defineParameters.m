@@ -22,12 +22,23 @@ for k = 1:size(p, 1)
     putEntry(sec, p{k,1}, s);
 end
 
-% Harness solver settings (variable-step, for plant accuracy)
-cs = Simulink.ConfigSet;
-cs.Name = "cfgHarness";
-set_param(cs, "SolverType", "Variable-step", "Solver", "daessc", ...
-              "MaxStep", "0.1", "StopTime", "10");
-putEntry(getSection(dd, "Configurations"), "cfgHarness", cs);
+% Harness solver settings: fixed step, identical on desktop and on the OP5033 (RT-LAB
+% needs a fixed step). 10 ms is set by the HIL interface (CAN frame timing, BMS
+% reaction timing), not by the plant; checkPlantFixedStep.m checks its accuracy against
+% a variable-step reference. The Simscape Solver Configuration block in PLANT must use
+% the same step (local solver, backward Euler, fixed-cost iterations).
+% An existing cfgHarness is edited in place, so other settings made in the GUI are kept.
+platformTs = "0.01";   % s
+cfgSec = getSection(dd, "Configurations");
+if exist(cfgSec, "cfgHarness")
+    cs = getValue(getEntry(cfgSec, "cfgHarness"));
+else
+    cs = Simulink.ConfigSet;
+    cs.Name = "cfgHarness";
+    set_param(cs, "StopTime", "10");
+end
+set_param(cs, "SolverType", "Fixed-step", "Solver", "ode1", "FixedStep", platformTs);
+putEntry(cfgSec, "cfgHarness", cs);
 
 saveChanges(dd);
 fprintf("Parameters and cfgHarness written to bmsPlatform.sldd\n");
