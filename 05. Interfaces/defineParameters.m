@@ -38,6 +38,13 @@ else
     set_param(cs, "StopTime", "10");
 end
 set_param(cs, "SolverType", "Fixed-step", "Solver", "ode1", "FixedStep", platformTs);
+% Parameters stay tunable in generated code, so RT-LAB can change them while running
+% (e.g. LOAD_iConst from a dashboard). Signal storage reuse and block reduction off,
+% so every named signal remains visible to RT-LAB (slightly slower code; desktop
+% results unchanged).
+set_param(cs, "DefaultParameterBehavior", "Tunable", ...
+              "OptimizeBlockIOStorage",   "off", ...
+              "BlockReduction",           "off");
 putEntry(cfgSec, "cfgHarness", cs);
 
 saveChanges(dd);
