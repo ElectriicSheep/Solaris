@@ -17,6 +17,9 @@ function prepareRTModel(rtModelFile)
 %     3. PreLoadFcn: opens THIS project by its absolute path, because RT-LAB opens
 %        the copy from its own workspace, where the repo model's relative callback
 %        cannot find the project.
+%     4. InitFcn: sets LOAD_includeExt = false before load_params runs, so the ~1
+%        million-sample extended cycle is not compiled in (profile 4 = CYCLE A on
+%        the target; see load_params.m).
 %
 %   The repo model is the only model that is edited. To update the RT-LAB copy,
 %   re-import bmsTestPlatform.slx in RT-LAB and run this function again.
@@ -60,6 +63,13 @@ function prepareRTModel(rtModelFile)
          '    %% Set by prepareRTModel.m: open the modularBMS project, then return here\n' ...
          '    d = pwd; openProject("%s"); cd(d);\n' ...
          'end'], prj.RootFolder));
+
+    % 4. No extended load cycle in RT builds
+    initFcn = string(get_param(mdl, "InitFcn"));
+    if ~contains(initFcn, "LOAD_includeExt")
+        set_param(mdl, "InitFcn", "LOAD_includeExt = false;   % set by prepareRTModel.m" ...
+            + newline + initFcn);
+    end
 
     save_system(mdl);
     fprintf("Prepared %s\n  configuration: cfgRT (%s, %s, step %s s)\n  project: %s\n", ...

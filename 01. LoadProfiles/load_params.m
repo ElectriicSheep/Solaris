@@ -18,12 +18,20 @@
 % use .k and .N, so every sample boundary is exact (no accumulated rounding).
 % Row 2 of the files (values 0 to 2) is not used here.
 %
-% The extended profile is ~1 million samples. It is compiled into the RT-LAB build
-% as a constant table (~8 MB); if builds become too slow, drop it from lpFiles.
+% The extended profile is ~1 million samples, too large to compile into an RT-LAB
+% build in reasonable time. The RT-LAB copy sets LOAD_includeExt = false before this
+% file runs (prepareRTModel.m), and LOAD_cycleAext is then a copy of LOAD_cycleA:
+% profile 4 plays CYCLE A on the OP5033. Desktop runs (flag absent) load the full file.
 
 lpTs    = 0.01;     % s, platform fixed step (cfgHarness FixedStep)
 lpFiles = ["marineCycle_a.mat"   "marineCycle_a_extended.mat"];
 lpNames = ["LOAD_cycleA"         "LOAD_cycleAext"];
+
+lpIncludeExt = ~exist("LOAD_includeExt", "var") || LOAD_includeExt;
+clear LOAD_includeExt                    % one-shot: set again by the RT copy's InitFcn
+if ~lpIncludeExt
+    lpFiles = lpFiles(1);  lpNames = lpNames(1);
+end
 
 for lpIdx = 1:numel(lpFiles)
     lpData = load(lpFiles(lpIdx), "marine_cycle").marine_cycle;   % rows: time; current; (unused)
@@ -39,4 +47,9 @@ for lpIdx = 1:numel(lpFiles)
     assignin("base", lpNames(lpIdx), lpProfile);
 end
 
-clear lpTs lpFiles lpNames lpIdx lpData lpT lpDt lpK lpProfile
+if ~lpIncludeExt
+    LOAD_cycleAext = LOAD_cycleA;        % profile 4 plays CYCLE A (RT-LAB builds)
+    fprintf("load_params: extended cycle not loaded; profile 4 = CYCLE A\n");
+end
+
+clear lpIncludeExt lpTs lpFiles lpNames lpIdx lpData lpT lpDt lpK lpProfile
