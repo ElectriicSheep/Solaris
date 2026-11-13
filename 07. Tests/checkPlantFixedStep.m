@@ -51,7 +51,7 @@ function runCheck()
     % Pulsed load: 1C for 10 s, rest 10 s; excites the fast voltage response
     base = Simulink.SimulationInput(mdl);
     base = base.setModelParameter("StopTime", num2str(tStop));
-    base = base.setVariable("LOAD_variant", 2);
+    base = base.setVariable("LOAD_profile", 2);
     base = base.setVariable("LOAD_pulsePeriod", 20);
     base = base.setVariable("LOAD_pulseDuty", 50);
 

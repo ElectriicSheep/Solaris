@@ -7,13 +7,16 @@ dd  = Simulink.data.dictionary.open("bmsPlatform.sldd");
 sec = getSection(dd, "Design Data");
 
 %       name                value    unit  description
-p = { "LOAD_variant",       1,       "",   "Active load: 1 = CONST, 2 = PULSE, 3 = CYCLE"
+p = { "LOAD_profile",       1,       "",   "Active load, selectable while running: 1 = CONST, 2 = PULSE, 3 = CYCLE A (loops), 4 = CYCLE A extended (loops); other = 0 A"
       "LOAD_iConst",        23.45,   "A",  "Constant discharge current (1C for one tube)"
       "LOAD_iPulse",        23.45,   "A",  "Pulse current"
       "LOAD_pulsePeriod",   600,     "s",  "Pulse period"
       "LOAD_pulseDuty",     50,      "",   "Pulse on-time, percent of period"
-      "LOAD_scale",         1,       "",   "Scale factor on the mission profile"
+      "LOAD_scale",         1,       "",   "Scale factor on the CYCLE profiles"
       "PLANT_tAmbient",     288.15,  "K",  "Ambient temperature (match T0 in the battery params)" };
+
+% LOAD_variant (compile-time variant choice) was replaced by LOAD_profile (run-time switch)
+if exist(sec, "LOAD_variant"), deleteEntry(sec, "LOAD_variant"); end
 
 for k = 1:size(p, 1)
     s = Simulink.Parameter(p{k,2});

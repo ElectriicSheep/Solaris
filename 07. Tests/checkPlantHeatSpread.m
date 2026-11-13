@@ -38,7 +38,7 @@ assert(isscalar(m3), "Could not find a single block named Module3 in the model."
 
 base = Simulink.SimulationInput(mdl);
 base = base.setModelParameter("StopTime", num2str(tStop));
-base = base.setVariable("LOAD_variant", 1);
+base = base.setVariable("LOAD_profile", 1);
 base = base.setVariable("LOAD_iConst", 0);
 hotIn = base.setBlockParameter(m3{1}, "batteryTemperature", ...
     sprintf("T0*ones(14,1) + %g*((1:14)'==5)", dHot));

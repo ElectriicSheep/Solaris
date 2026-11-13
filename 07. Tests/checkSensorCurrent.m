@@ -23,9 +23,9 @@ load_system(mdl);
 % The test needs the constant discharge load
 dd = Simulink.data.dictionary.open("bmsPlatform.sldd");
 dsec = getSection(dd, "Design Data");
-loadVariant = getValue(getEntry(dsec, "LOAD_variant"));
+loadProfile = getValue(getEntry(dsec, "LOAD_profile"));
 iConst      = getValue(getEntry(dsec, "LOAD_iConst"));
-assert(loadVariant.Value == 1, "Set LOAD_variant = 1 (CONST) in the dictionary first.");
+assert(loadProfile.Value == 1, "Set LOAD_profile = 1 (CONST) in the dictionary first.");
 iConst = iConst.Value;
 
 %% Run 1: ideal sensors
