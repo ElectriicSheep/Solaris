@@ -25,6 +25,11 @@ helpsearch*/
 slprj/
 sccprj/
 codegen/
+*_ert_rtw/
+*_grt_rtw/
+
+# Project build folder (Simulink cache and generated code; set in the project settings)
+work/
 
 # Cache files
 *.slxc
