@@ -2,7 +2,8 @@
 % Creates / updates the BMS's own data dictionary, bms.sldd (in 04. BMS):
 %   - references bmsInterface.sldd (the contract: SENS_measBus in, BMS_outBus out)
 %   - holds the BMS configuration cfgBMS (Embedded Coder, Raspberry Pi 4)
-%   - will hold the BMS parameters and internal (layer-to-layer) buses
+%   - holds the internal layer-to-layer buses (the BMS "database", as in foxBMS)
+%   - will hold the BMS parameters
 %
 % The BMS must NOT reference bmsPlatform.sldd: everything the generated BMS code
 % needs comes from bms.sldd and the contract, so bms.slx builds on its own.
@@ -48,12 +49,67 @@ set_param(cs, ...
     "GenerateComments", "on");
 putEntry(getSection(dd, "Configurations"), bmsFile, "cfgBMS", cs);
 
+%% Internal buses: one per layer output (never part of the contract)
+nGroup = 13;  nTemp = 26;
+secD = getSection(dd, "Design Data");
+putBus(secD, bmsFile, "BMS_measData", "MEAS -> PLAUS: calibrated measurements", [ ...
+    el("vGroup",  nGroup, "V", "double", "Calibrated group voltages")
+    el("iPack",   1,      "A", "double", "Calibrated pack current, discharge positive")
+    el("tSensor", nTemp,  "K", "double", "Calibrated temperatures")
+    el("tsV",     1,      "s", "double", "Timestamp of the voltage sample")
+    el("tsI",     1,      "s", "double", "Timestamp of the current sample")
+    el("tsT",     1,      "s", "double", "Timestamp of the temperature sample")]);
+putBus(secD, bmsFile, "BMS_plausData", "PLAUS -> BMSVL: measurements with per-channel validity", [ ...
+    el("vGroup",  nGroup, "V", "double",  "Group voltages (as MEAS)")
+    el("iPack",   1,      "A", "double",  "Pack current (as MEAS)")
+    el("tSensor", nTemp,  "K", "double",  "Temperatures (as MEAS)")
+    el("vValid",  nGroup, "",  "boolean", "Voltage channel plausible (range, staleness, rate)")
+    el("iValid",  1,      "",  "boolean", "Current channel plausible")
+    el("tValid",  nTemp,  "",  "boolean", "Temperature channel plausible")]);
+putBus(secD, bmsFile, "BMS_validData", "BMSVL -> SOA, SE, BMS: validated values and extremes", [ ...
+    el("vGroup",   nGroup, "V", "double",  "Validated group voltages")
+    el("iPack",    1,      "A", "double",  "Validated pack current")
+    el("tSensor",  nTemp,  "K", "double",  "Validated temperatures")
+    el("vMin",     1,      "V", "double",  "Lowest valid group voltage")
+    el("vMax",     1,      "V", "double",  "Highest valid group voltage")
+    el("tMin",     1,      "K", "double",  "Lowest valid temperature")
+    el("tMax",     1,      "K", "double",  "Highest valid temperature")
+    el("allValid", 1,      "",  "boolean", "Every channel plausible")]);
+putBus(secD, bmsFile, "BMS_soaData", "SOA -> DIAG: limit violations, each [MOL RSL MSL]", [ ...
+    el("overVoltage",      3, "", "boolean", "vMax above the limit [MOL RSL MSL]")
+    el("underVoltage",     3, "", "boolean", "vMin below the limit [MOL RSL MSL]")
+    el("overCurrentDchg",  3, "", "boolean", "Discharge current above the limit [MOL RSL MSL]")
+    el("overCurrentChg",   3, "", "boolean", "Charge current above the limit [MOL RSL MSL]")
+    el("overTemp",         3, "", "boolean", "tMax above the limit [MOL RSL MSL]")
+    el("underTemp",        3, "", "boolean", "tMin below the limit [MOL RSL MSL]")]);
+putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
+    el("socGroup", nGroup, "1", "double", "Estimated group SOC, 0-1")
+    el("sohR",     nGroup, "1", "double", "Resistance SOH per group (1 = new)")
+    el("sohQ",     nGroup, "1", "double", "Capacity SOH per group (1 = new)")
+    el("socPack",  1,      "1", "double", "Pack SOC (minimum group SOC)")
+    el("sohPack",  1,      "1", "double", "Pack SOH (worst group)")]);
+
 saveChanges(dd);
 fprintf("bms.sldd written: references %s; configuration cfgBMS (%s, %s, %s s)\n", ...
     strjoin(string(dd.DataSources), ", "), get_param(cs, "SystemTargetFile"), ...
     get_param(cs, "Solver"), get_param(cs, "FixedStep"));
 
 %% Local functions
+function e = el(name, dims, unit, dataType, description)
+    % One bus element
+    e = Simulink.BusElement;
+    e.Name = name;  e.Dimensions = dims;  e.DataType = dataType;
+    e.Unit = unit;  e.Description = description;
+end
+
+function putBus(sec, ds, name, description, elements)
+    % Create a bus object and store it in dictionary file ds
+    b = Simulink.Bus;
+    b.Description = description;
+    b.Elements    = elements;
+    putEntry(sec, ds, name, b);
+end
+
 function putEntry(sec, ds, name, value)
     % Add the entry to dictionary file ds, or overwrite it if ds already holds it
     local = find(sec, "Name", name, "DataSource", ds);
