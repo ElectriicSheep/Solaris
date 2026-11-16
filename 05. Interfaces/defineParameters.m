@@ -50,6 +50,13 @@ set_param(cs, "DefaultParameterBehavior", "Tunable", ...
               "BlockReduction",           "off");
 putEntry(cfgSec, "cfgHarness", cs);
 
+% BMS_stubOut: output of the STUB choice of SM_bms/BMS (RT-LAB builds, where the BMS is
+% external). Contactor commanded closed so the plant conducts without a BMS; all other
+% fields zero / default. BMS_outBus comes from the referenced bmsInterface.sldd, hence dd.
+stub = Simulink.Bus.createMATLABStruct("BMS_outBus", [], [1 1], dd);
+stub.contactorCmd = true;
+putEntry(sec, "BMS_stubOut", stub);
+
 saveChanges(dd);
 fprintf("Parameters and cfgHarness written to bmsPlatform.sldd\n");
 

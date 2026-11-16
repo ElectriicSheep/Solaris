@@ -14,3 +14,7 @@ if PLANT_cellVariation
 else
     bat_35E_13S7P_placeholder_params;
 end
+
+% Platform timing and contactor (set after the cell scripts, which clear their own names)
+PLANT_Ts         = 0.01;   % s, platform base step; must equal cfgHarness FixedStep
+PLANT_tContactor = 0.03;   % s, contactor operate delay (placeholder until the part is chosen)
