@@ -20,6 +20,8 @@ function prepareRTModel(rtModelFile)
 %     4. InitFcn: sets LOAD_includeExt = false before load_params runs, so the ~1
 %        million-sample extended cycle is not compiled in (profile 4 = CYCLE A on
 %        the target; see load_params.m).
+%     5. BMS variant: SM_bms/BMS set to the STUB choice. On the OP5033 the BMS is
+%        the external controller (the Pi), not the bms.slx model reference.
 %
 %   The repo model is the only model that is edited. To update the RT-LAB copy,
 %   re-import bmsTestPlatform.slx in RT-LAB and run this function again.
@@ -71,8 +73,19 @@ function prepareRTModel(rtModelFile)
             + newline + initFcn);
     end
 
+    % 5. BMS stub in RT builds
+    bmsBlk = mdl + "/SM_bms/BMS";
+    if getSimulinkBlockHandle(bmsBlk) > 0
+        assert(get_param(bmsBlk, "Variant") == "on" && get_param(bmsBlk, "VariantControlMode") == "label", ...
+            "SM_bms/BMS must be a Variant Subsystem in label mode (choices SIL, STUB).");
+        set_param(bmsBlk, "LabelModeActiveChoice", "STUB");
+    end
+
     save_system(mdl);
     fprintf("Prepared %s\n  configuration: cfgRT (%s, %s, step %s s)\n  project: %s\n", ...
         rtModelFile, get_param(mdl, "SolverType"), get_param(mdl, "SolverName"), ...
         get_param(mdl, "FixedStep"), prj.RootFolder);
+    if getSimulinkBlockHandle(bmsBlk) > 0
+        fprintf("  BMS variant: %s\n", get_param(bmsBlk, "LabelModeActiveChoice"));
+    end
 end
