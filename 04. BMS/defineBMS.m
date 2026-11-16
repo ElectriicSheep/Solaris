@@ -3,7 +3,7 @@
 %   - references bmsInterface.sldd (the contract: SENS_measBus in, BMS_outBus out)
 %   - holds the BMS configuration cfgBMS (Embedded Coder, Raspberry Pi 4)
 %   - holds the internal layer-to-layer buses (the BMS "database", as in foxBMS)
-%   - will hold the BMS parameters
+%   - holds the BMS parameters (the BMS's own knowledge of the cells)
 %
 % The BMS must NOT reference bmsPlatform.sldd: everything the generated BMS code
 % needs comes from bms.sldd and the contract, so bms.slx builds on its own.
@@ -89,6 +89,19 @@ putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
     el("socPack",  1,      "1", "double", "Pack SOC (minimum group SOC)")
     el("sohPack",  1,      "1", "double", "Pack SOH (worst group)")]);
 
+%% BMS parameters
+% PLACEHOLDERS: copied from the plant's nominal placeholder cell
+% (bat_35E_13S7P_placeholder_params.m) so the BMS knows the NOMINAL cell exactly;
+% the heterogeneous plant still differs from it per module (capacity, OCV offset, ...).
+% Replace with the BMS's own characterisation data (HPPC / OCV tests) when available.
+putParam(secD, bmsFile, "BMS_Qgroup", 7 * 3.35, "A*h", ...
+    "Nominal parallel-group capacity: 7 cells x 3.35 Ah (placeholder)");
+putParam(secD, bmsFile, "BMS_ocvSoc", 0:0.1:1, "1", ...
+    "SOC breakpoints of the BMS OCV table (placeholder)");
+putParam(secD, bmsFile, "BMS_ocvV", ...
+    [2.650 3.380 3.510 3.590 3.655 3.725 3.795 3.875 3.970 4.075 4.200], "V", ...
+    "Cell (= group) OCV at BMS_ocvSoc, strictly increasing (placeholder)");
+
 saveChanges(dd);
 fprintf("bms.sldd written: references %s; configuration cfgBMS (%s, %s, %s s)\n", ...
     strjoin(string(dd.DataSources), ", "), get_param(cs, "SystemTargetFile"), ...
@@ -108,6 +121,13 @@ function putBus(sec, ds, name, description, elements)
     b.Description = description;
     b.Elements    = elements;
     putEntry(sec, ds, name, b);
+end
+
+function putParam(sec, ds, name, value, unit, description)
+    % A Simulink.Parameter with unit and description
+    p = Simulink.Parameter(value);
+    p.Unit = unit;  p.Description = description;
+    putEntry(sec, ds, name, p);
 end
 
 function putEntry(sec, ds, name, value)
