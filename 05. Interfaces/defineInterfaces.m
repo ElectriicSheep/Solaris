@@ -2,8 +2,11 @@
 % Defines the interfaces in two data dictionaries:
 %
 %   bmsInterface.sldd  - the BMS CONTRACT, the only types the BMS and the platform share:
-%       SENS_measBus     measurements in   (SENS -> BMS; later the same content over CAN/UDP)
-%       BMS_outBus       BMS outputs       (BMS -> EVAL, telemetry), containing
+%       SENS_measBus     measurements in   (SENS -> BMS; later the same content over CAN/UDP),
+%                        including the contactor auxiliary-contact feedback
+%       VEH_requestBus   vehicle request in (vehicle controller -> BMS over CAN; here LOAD)
+%       BMS_request        requested state enumeration (NONE, STANDBY, NORMAL)
+%       BMS_outBus       BMS outputs       (BMS -> PLANT contactor, EVAL, telemetry), containing
 %       DIAG_bus           fault flags
 %       BMS_state          system state enumeration
 %   bmsPlatform.sldd   - platform-only buses (never visible to the BMS):
@@ -49,6 +52,20 @@ e.DefaultValue = "UNINITIALIZED";
 e.Description  = "BMS system state";
 putEntry(secIfc, ifcFile, "BMS_state", e);
 
+% Vehicle state request (as foxBMS: STANDBY/NORMAL requested over CAN)
+r = Simulink.data.dictionary.EnumTypeDefinition;
+appendEnumeral(r, "REQ_NONE",    0, "No request (e.g. no message received yet)");
+appendEnumeral(r, "REQ_STANDBY", 1, "Vehicle requests STANDBY: contactor open");
+appendEnumeral(r, "REQ_NORMAL",  2, "Vehicle requests NORMAL: contactor closed, power available");
+removeEnumeral(r, 1);
+r.DefaultValue = "REQ_NONE";
+r.Description  = "State requested by the vehicle controller";
+putEntry(secIfc, ifcFile, "BMS_request", r);
+
+putBus(secIfc, ifcFile, "VEH_requestBus", "Vehicle -> BMS request (contract)", [ ...
+    el("request",   1, "",  "Enum: BMS_request", "Requested BMS state")
+    el("tsRequest", 1, "s", "double",            "Timestamp of the request message")]);
+
 % SENS_measBus
 putBus(secIfc, ifcFile, "SENS_measBus", "Measurements into the BMS (contract)", [ ...
     el("vGroup",  nGroup, "V",    "double", "Measured group voltages")
@@ -56,7 +73,9 @@ putBus(secIfc, ifcFile, "SENS_measBus", "Measurements into the BMS (contract)", 
     el("tSensor", nTemp,  "K",    "double", "Measured temperatures: g1 buried, g1 outer, g2 buried, ...")
     el("tsV",     1,      "s",    "double", "Timestamp of the voltage sample")
     el("tsI",     1,      "s",    "double", "Timestamp of the current sample")
-    el("tsT",     1,      "s",    "double", "Timestamp of the temperature sample")]);
+    el("tsT",     1,      "s",    "double", "Timestamp of the temperature sample")
+    el("contactorFb", 1,  "",     "boolean", "Main contactor auxiliary contact: true = closed")
+    el("tsC",     1,      "s",    "double", "Timestamp of the contactor feedback sample")]);
 
 % DIAG_bus (first version; extended with the DIAG layer)
 putBus(secIfc, ifcFile, "DIAG_bus", "Debounced fault flags from DIAG (contract)", [ ...
@@ -79,7 +98,8 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("vMax",     1,      "V",    "double",          "Highest validated group voltage")
     el("tMax",     1,      "K",    "double",          "Highest validated temperature")
     el("state",    1,      "",     "Enum: BMS_state", "BMS system state")
-    el("diag",     1,      "",     "Bus: DIAG_bus",   "Fault flags")]);
+    el("diag",     1,      "",     "Bus: DIAG_bus",   "Fault flags")
+    el("contactorCmd", 1,  "",     "boolean",         "Main contactor command: true = close")]);
 saveChanges(ddIfc);
 
 %% 2. Platform dictionary: reference the contract, keep only platform buses
@@ -101,7 +121,8 @@ putBus(secPlat, platFile, "PLANT_truthBus", "True plant values, PLANT -> SENS an
     el("socGroup", nGroup, "1",    "double", "True parallel-group SOC, 0-1")
     el("iPack",    1,      "A",    "double", "True pack current, sign as the plant current sensor")
     el("tCell",    nCell,  "K",    "double", "True cell temperatures, modules 1-7 in order")
-    el("socCell",  nCell,  "1",    "double", "True cell SOC, 0-1")]);
+    el("socCell",  nCell,  "1",    "double", "True cell SOC, 0-1")
+    el("contactorClosed", 1, "",   "boolean", "True main contactor state: true = closed")]);
 saveChanges(ddPlat);
 
 fprintf("Contract in %s:\n", ifcFile);      disp(string({find(secIfc, "DataSource", ifcFile).Name})');

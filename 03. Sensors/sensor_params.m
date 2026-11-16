@@ -18,6 +18,7 @@ rng(1);                     % fixed seed: same per-channel offsets every run
 sens.Ts_V = 0.1;            % group voltages
 sens.Ts_I = 0.1;            % pack current
 sens.Ts_T = 1.0;            % temperatures
+sens.Ts_C = 0.1;            % main contactor auxiliary-contact feedback (placeholder)
 
 %% Group voltages (13 channels)
 nV = 13;

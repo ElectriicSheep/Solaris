@@ -58,14 +58,18 @@ putBus(secD, bmsFile, "BMS_measData", "MEAS -> PLAUS: calibrated measurements", 
     el("tSensor", nTemp,  "K", "double", "Calibrated temperatures")
     el("tsV",     1,      "s", "double", "Timestamp of the voltage sample")
     el("tsI",     1,      "s", "double", "Timestamp of the current sample")
-    el("tsT",     1,      "s", "double", "Timestamp of the temperature sample")]);
+    el("tsT",     1,      "s", "double", "Timestamp of the temperature sample")
+    el("contactorFb", 1,  "",  "boolean", "Main contactor feedback: true = closed")
+    el("tsC",     1,      "s", "double", "Timestamp of the contactor feedback sample")]);
 putBus(secD, bmsFile, "BMS_plausData", "PLAUS -> BMSVL: measurements with per-channel validity", [ ...
     el("vGroup",  nGroup, "V", "double",  "Group voltages (as MEAS)")
     el("iPack",   1,      "A", "double",  "Pack current (as MEAS)")
     el("tSensor", nTemp,  "K", "double",  "Temperatures (as MEAS)")
     el("vValid",  nGroup, "",  "boolean", "Voltage channel plausible (range, staleness, rate)")
     el("iValid",  1,      "",  "boolean", "Current channel plausible")
-    el("tValid",  nTemp,  "",  "boolean", "Temperature channel plausible")]);
+    el("tValid",  nTemp,  "",  "boolean", "Temperature channel plausible")
+    el("contactorFb", 1,  "",  "boolean", "Main contactor feedback (as MEAS)")
+    el("cValid",  1,      "",  "boolean", "Contactor feedback plausible (e.g. not stale)")]);
 putBus(secD, bmsFile, "BMS_validData", "BMSVL -> SOA, SE, BMS: validated values and extremes", [ ...
     el("vGroup",   nGroup, "V", "double",  "Validated group voltages")
     el("iPack",    1,      "A", "double",  "Validated pack current")
@@ -74,7 +78,8 @@ putBus(secD, bmsFile, "BMS_validData", "BMSVL -> SOA, SE, BMS: validated values 
     el("vMax",     1,      "V", "double",  "Highest valid group voltage")
     el("tMin",     1,      "K", "double",  "Lowest valid temperature")
     el("tMax",     1,      "K", "double",  "Highest valid temperature")
-    el("allValid", 1,      "",  "boolean", "Every channel plausible")]);
+    el("allValid", 1,      "",  "boolean", "Every channel plausible")
+    el("contactorFb", 1,   "",  "boolean", "Validated main contactor feedback: true = closed")]);
 putBus(secD, bmsFile, "BMS_soaData", "SOA -> DIAG: limit violations, each [MOL RSL MSL]", [ ...
     el("overVoltage",      3, "", "boolean", "vMax above the limit [MOL RSL MSL]")
     el("underVoltage",     3, "", "boolean", "vMin below the limit [MOL RSL MSL]")
@@ -94,6 +99,9 @@ putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
 % (bat_35E_13S7P_placeholder_params.m) so the BMS knows the NOMINAL cell exactly;
 % the heterogeneous plant still differs from it per module (capacity, OCV offset, ...).
 % Replace with the BMS's own characterisation data (HPPC / OCV tests) when available.
+putParam(secD, bmsFile, "BMS_Ts", 0.1, "s", ...
+    "BMS task period: the rate at which the BMS reads its inputs and runs MEAS..BMS " + ...
+    "(must be a multiple of the 10 ms base rate in cfgBMS)");
 putParam(secD, bmsFile, "BMS_Qnom", 7 * 3.35, "A*h", ...
     "Nominal (new) parallel-group capacity Q_nom: 7 cells x 3.35 Ah (placeholder). " + ...
     "Actual capacity per group Q_act = BMS_Qnom * SOH_Q, used by coulomb counting.");
