@@ -13,7 +13,8 @@ p = { "LOAD_profile",       1,       "",   "Active load, selectable while runnin
       "LOAD_pulsePeriod",   600,     "s",  "Pulse period"
       "LOAD_pulseDuty",     50,      "",   "Pulse on-time, percent of period"
       "LOAD_scale",         1,       "",   "Scale factor on the CYCLE profiles"
-      "PLANT_tAmbient",     288.15,  "K",  "Ambient temperature (match T0 in the battery params)" };
+      "PLANT_tAmbient",     288.15,  "K",  "Ambient temperature (match T0 in the battery params)"
+      "PLANT_switchFault",  0,       "",   "Main switch fault injection, selectable while running: 0 = none, 1 = stuck open, 2 = welded (stuck closed); other = none" };
 
 % LOAD_variant (compile-time variant choice) was replaced by LOAD_profile (run-time switch)
 if exist(sec, "LOAD_variant"), deleteEntry(sec, "LOAD_variant"); end
