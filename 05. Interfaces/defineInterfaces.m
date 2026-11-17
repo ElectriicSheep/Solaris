@@ -4,8 +4,6 @@
 %   bmsInterface.sldd  - the BMS CONTRACT, the only types the BMS and the platform share:
 %       SENS_measBus     measurements in   (SENS -> BMS; later the same content over CAN/UDP),
 %                        including the contactor auxiliary-contact feedback
-%       VEH_requestBus   vehicle request in (vehicle controller -> BMS over CAN; here LOAD)
-%       BMS_request        requested state enumeration (NONE, STANDBY, NORMAL)
 %       BMS_outBus       BMS outputs       (BMS -> PLANT contactor, EVAL, telemetry), containing
 %       DIAG_bus           fault flags
 %       BMS_state          system state enumeration
@@ -42,29 +40,24 @@ secIfc = getSection(ddIfc, "Design Data");
 
 % BMS state enumeration
 e = Simulink.data.dictionary.EnumTypeDefinition;
-appendEnumeral(e, "UNINITIALIZED",  0, "Start-up");
-appendEnumeral(e, "INITIALIZATION", 1, "Waiting for valid measurements and SOC initialisation");
-appendEnumeral(e, "STANDBY",        2, "No load requested");
-appendEnumeral(e, "NORMAL",         3, "Running");
-appendEnumeral(e, "ERROR",          4, "Fatal fault latched");
+% Autonomous BMS: no external state requests. The main switch is open in
+% INITIALIZATION until the start-up checks pass; the BMS then closes it itself and
+% enters NORMAL once the switch feedback confirms it.
+appendEnumeral(e, "INITIALIZATION", 0, "Switch open: start-up checks and SOC initialisation, then close and confirm");
+appendEnumeral(e, "NORMAL",         1, "Switch closed: running and monitoring");
+appendEnumeral(e, "ERROR",          2, "Switch open: fault; automatic retry after recovery, latched after the retry limit");
 removeEnumeral(e, 1);                       % remove the default placeholder entry
-e.DefaultValue = "UNINITIALIZED";
+e.DefaultValue = "INITIALIZATION";
 e.Description  = "BMS system state";
 putEntry(secIfc, ifcFile, "BMS_state", e);
 
-% Vehicle state request (as foxBMS: STANDBY/NORMAL requested over CAN)
-r = Simulink.data.dictionary.EnumTypeDefinition;
-appendEnumeral(r, "REQ_NONE",    0, "No request (e.g. no message received yet)");
-appendEnumeral(r, "REQ_STANDBY", 1, "Vehicle requests STANDBY: contactor open");
-appendEnumeral(r, "REQ_NORMAL",  2, "Vehicle requests NORMAL: contactor closed, power available");
-removeEnumeral(r, 1);
-r.DefaultValue = "REQ_NONE";
-r.Description  = "State requested by the vehicle controller";
-putEntry(secIfc, ifcFile, "BMS_request", r);
-
-putBus(secIfc, ifcFile, "VEH_requestBus", "Vehicle -> BMS request (contract)", [ ...
-    el("request",   1, "",  "Enum: BMS_request", "Requested BMS state")
-    el("tsRequest", 1, "s", "double",            "Timestamp of the request message")]);
+% No vehicle request: the BMS is autonomous (contactor open at start-up, closed by the
+% BMS itself once its checks pass). Entries from the earlier request-based design are
+% removed if present.
+for n = ["VEH_requestBus" "BMS_request"]
+    old = find(secIfc, "Name", n, "DataSource", ifcFile);
+    if ~isempty(old), deleteEntry(old); end
+end
 
 % SENS_measBus
 putBus(secIfc, ifcFile, "SENS_measBus", "Measurements into the BMS (contract)", [ ...
@@ -85,7 +78,7 @@ putBus(secIfc, ifcFile, "DIAG_bus", "Debounced fault flags from DIAG (contract)"
     el("overTemp",      1, "", "boolean", "Over-temperature fault")
     el("underTemp",     1, "", "boolean", "Under-temperature fault")
     el("sensorInvalid", 1, "", "boolean", "A measurement is out of range or stale")
-    el("anyFatal",      1, "", "boolean", "At least one fatal fault is latched")]);
+    el("anyFatal",      1, "", "boolean", "At least one fatal fault present (debounced, not latched: latching and retries are done by the BMS state machine)")]);
 
 % BMS_outBus
 putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
