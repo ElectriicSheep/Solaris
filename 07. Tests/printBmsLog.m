@@ -92,10 +92,12 @@ function [fc, txt] = describe(r)
         case BMS_eventCode.RETRY_LIMIT
             fc = "ERR-LATCHED";  txt = sprintf("retry limit reached after %d attempts: ERROR latched until power off/on or reset", g);
         case BMS_eventCode.SOC_INIT
-            how = ["from the stored SOC", "blending stored SOC and OCV", "from OCV"];
+            how = ["from the stored SOC", "(method 2 not used)", "from OCV"];
             fc = "SOC";
             if r.value < 0, txt = sprintf("SOC initialised %s (no stored record used: none valid, or reset)", how(max(min(g,3),1)));
             else, txt = sprintf("SOC initialised %s (rest %.1f min)", how(max(min(g,3),1)), r.value/60); end
+        case BMS_eventCode.SOC_RECAL
+            fc = "SOC-RECAL";  txt = sprintf("SOC recalibrated from OCV at rest (pack SOC %.1f %%)", 100*r.value);
         case BMS_eventCode.POWER_ON
             fc = "PWR";  txt = "power button: BMS switched on";
         case BMS_eventCode.POWER_OFF

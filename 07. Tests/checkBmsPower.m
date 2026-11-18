@@ -62,8 +62,9 @@ function [ok, msg] = c3(out, T)
     before = interp1(t, s(:,1), tOff - 0.2);  after = interp1(t, s(:,1), tOn);
     [~, i] = getLoggedSignal(out, "iPack", "PLANT");  [ti, ~] = getLoggedSignal(out, "iPack", "PLANT");
     offCurrent = max(abs(i(ti > tOff + 0.3 & ti < tOn - 0.5)));
-    ok = abs(after - before) < 0.002 && offCurrent < 0.01;
-    msg = sprintf("(group-1 SOC before off %.4f, after restart %.4f; max current while off %.3f A)", before, after, offCurrent);
+    [tT, sT] = getLoggedSignal(out, "socTrue", "EVAL");  trueBefore = interp1(tT, sT(:,1), tOff - 0.2);
+    ok = abs(after - before) < 0.002 && abs(before - trueBefore) < 0.01 && offCurrent < 0.01;
+    msg = sprintf("(group-1 SOC before off %.4f (true %.4f), after restart %.4f; max current while off %.3f A)", before, trueBefore, after, offCurrent);
 end
 
 function [ok, msg] = c4(out, T)

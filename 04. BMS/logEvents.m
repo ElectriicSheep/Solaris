@@ -23,7 +23,7 @@ function [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause
 %     INFO  START_CHECK_PASSED  switch commanded closed in INITIALIZATION
 %     INFO  SWITCH_CLOSED       NORMAL entered (feedback confirmed)
 %     INFO  POWER_ON / POWER_OFF / RESET   button long presses
-%     INFO  SOC_INIT            SOC initialised (location = method 1 stored, 2 blend, 3 OCV;
+%     INFO  SOC_INIT            SOC initialised (location = method 1 stored, 3 OCV;
 %                               value = rest time, s)
 %     MINOR SOC_MISMATCH        stored SOC disagreed with OCV (recharged / swapped while off);
 %                               location = group, value = difference, limit = socTol
@@ -43,9 +43,9 @@ function [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause
 
     nSlots = 6;                                   % = BMS_event slots on BMS_outBus
     persistent k prevState prevCmd prevCause prevLevel prevReady prevInv prevInvLoc count_ dropped_ attempt ...
-               tracking peakVal peakLoc prevInit
+               tracking peakVal peakLoc prevInit prevRecal
     if isempty(k)
-        prevInvLoc = zeros(4, 1, "uint8");  prevInit = uint8(0);
+        prevInvLoc = zeros(4, 1, "uint8");  prevInit = uint8(0);  prevRecal = false;
         tracking = false(6, 1);  peakVal = zeros(6, 1);  peakLoc = zeros(6, 1, "uint8");
         k = 0;  prevState = state;  prevCmd = false;  prevCause = BMS_eventCode.NONE;
         prevLevel = zeros(6, 1, "uint8");  prevReady = false;  prevInv = false(4, 1);
@@ -115,7 +115,7 @@ function [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause
         n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.POWER_OFF, true, uint8(0), uint8(0), 0, 0);
     end
     if pw.boot
-        prevInit = uint8(0);  prevReady = false;  prevLevel(:) = 0;  prevInv(:) = false;  attempt = uint8(0);
+        prevInit = uint8(0);  prevRecal = false;  prevReady = false;  prevLevel(:) = 0;  prevInv(:) = false;  attempt = uint8(0);
     end
 
     % --- start-up SOC initialisation ---
@@ -126,6 +126,12 @@ function [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause
         n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.SOC_INIT, true, se.socInitMethod, uint8(0), se.socInitRest, 0);
     end
     prevInit = se.socInitMethod;
+
+    % --- SOC recalibrated from OCV at rest (once per rest period) ---
+    if se.socRecal && ~prevRecal
+        n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.SOC_RECAL, true, uint8(0), uint8(0), se.socPack, 0);
+    end
+    prevRecal = se.socRecal;
 
     % --- start-up and state machine (INFO, and FAULT for ERROR causes) ---
     if k == 1 || state ~= prevState

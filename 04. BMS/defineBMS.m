@@ -100,11 +100,12 @@ putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
     el("sohQ",     nGroup, "1", "double", "Capacity SOH per group (1 = new)")
     el("socPack",  1,      "1", "double", "Pack SOC (minimum group SOC)")
     el("sohPack",  1,      "1", "double", "Pack SOH (worst group)")
-    el("socInitMethod",   1, "",  "uint8",   "How SOC was initialised: 0 not yet, 1 stored, 2 stored/OCV blend, 3 OCV")
+    el("socInitMethod",   1, "",  "uint8",   "How SOC was initialised: 0 not yet, 1 stored, 3 OCV (2 not used)")
     el("socInitMismatch", 1, "",  "boolean", "Stored SOC disagreed with OCV beyond BMS_socMismatchTol (OCV used)")
     el("socInitDiff",     1, "1", "double",  "Largest |stored - OCV| SOC difference over the groups at initialisation")
     el("socInitDiffIdx",  1, "",  "uint8",   "Group (1-13) with that largest difference; 0 = not evaluated")
     el("socInitRest",     1, "s", "double",  "Rest time since the stored record was saved (rtcNow - tSave); -1 = no stored record used (none valid, or reset)")
+    el("socRecal",        1, "",  "boolean", "SOC being recalibrated from OCV: pack at rest (|iPack| < BMS_iRest) for BMS_tRestRecal")
     el("nvm",             1, "",  "Bus: BMS_nvmRecord", "Record to save (current SOC, time, valid once SOC is initialised)")]);
 
 putBus(secD, bmsFile, "BMS_pwrData", "PWR -> all layers: power and reset state from the buttons", [ ...
@@ -137,7 +138,11 @@ putParam(secD, bmsFile, "BMS_ocvV", ...
 % (NMC ~2 h to 98 % of the steady-state OCV, NCA slower: Theuerkauf & Swan 2022); confirm
 % the 35E chemistry and measure it on real cells.
 putParam(secD, bmsFile, "BMS_tRelax", 7200, "s", ...
-    "Rest time after which the OCV is fully trusted at start-up (shorter rests blend stored SOC and OCV linearly)");
+    "Rest time since switch-off after which OCV is used at start-up (cells relaxed); shorter rests keep the stored SOC (placeholder)");
+% Runtime rest recalibration (as foxBMS: SOC set from OCV while at rest; foxBMS example
+% config 200 mA for 10 min). PLACEHOLDER: same relaxation caveat as BMS_tRelax.
+putParam(secD, bmsFile, "BMS_tRestRecal", 600, "s", ...
+    "Time at rest (|iPack| < BMS_iRest, switch closed, all valid) after which SOC is set from OCV while the rest lasts (foxBMS example: 10 min; placeholder)");
 putParam(secD, bmsFile, "BMS_socMismatchTol", 0.10, "1", ...
     "Largest stored-vs-OCV SOC difference explained by OCV error; beyond it the battery is taken as recharged or swapped while off and OCV is used");
 
@@ -188,7 +193,7 @@ lim.tMinChg  = [10 5 0]     + 273.15;
 putParam(secD, bmsFile, "BMS_soaLim", lim, "", ...
     "SOA limits, each [MOL RSL MSL]: vMax vMin (V), iDchg iChg (A), tMaxDchg tMinDchg tMaxChg tMinChg (K)");
 putParam(secD, bmsFile, "BMS_iRest", 0.2, "A", ...
-    "Current magnitude below which the pack is not charging/discharging (foxBMS default 200 mA)");
+    "Current magnitude below which the pack is at rest: no charge temperature window (SOA), rest timer for SOC recalibration (SE) (foxBMS default 200 mA)");
 
 % DIAG: debounce times. PLACEHOLDERS.
 putParam(secD, bmsFile, "BMS_tDiagSet", 0.5, "s", ...
