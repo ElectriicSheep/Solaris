@@ -88,6 +88,32 @@ c.StorageType  = "uint8";
 c.Description  = "BMS event / fault code (category); see the enumeral descriptions";
 putEntry(secIfc, ifcFile, "BMS_eventCode", c);
 
+% Log severity (one per record)
+v = Simulink.data.dictionary.EnumTypeDefinition;
+appendEnumeral(v, "NONE",  0, "Empty record slot");
+appendEnumeral(v, "INFO",  1, "Normal operation worth recording (start-up check, state change, switch closed, cleared)");
+appendEnumeral(v, "MINOR", 2, "MOL exceeded (edge of normal operation), debounced");
+appendEnumeral(v, "MAJOR", 3, "RSL exceeded, debounced; or an MSL excursion too short to be a fault");
+appendEnumeral(v, "FAULT", 4, "Opens the main switch: MSL exceeded, invalid measurement, switch fault, time-out, retry limit");
+removeEnumeral(v, 1);
+v.DefaultValue = "NONE";
+v.StorageType  = "uint8";
+v.Description  = "BMS log severity";
+putEntry(secIfc, ifcFile, "BMS_severity", v);
+
+% One log record. BMS_outBus carries nEventSlots of these per BMS step (NONE = empty slot).
+nEventSlots = 6;
+putBus(secIfc, ifcFile, "BMS_event", "One BMS log record (contract)", [ ...
+    el("t",        1, "s", "double",              "BMS time since start-up (task count x BMS_Ts)")
+    el("severity", 1, "",  "Enum: BMS_severity",  "INFO, MINOR, MAJOR or FAULT (NONE = empty slot)")
+    el("code",     1, "",  "Enum: BMS_eventCode", "What the record is about")
+    el("active",   1, "",  "boolean",             "true = raised / occurred, false = cleared")
+    el("location", 1, "",  "uint8",               "Group 1-13 (voltage), sensor 1-26 (temperature), attempt number, new state; 0 = pack / several / n.a.")
+    el("level",    1, "",  "uint8",               "Limit level: 1 MOL, 2 RSL, 3 MSL; 0 = not a limit record")
+    el("value",    1, "",  "double",              "Measured value (V, A or K), or previous state for STATE_CHANGE")
+    el("limit",    1, "",  "double",              "Limit crossed (V, A or K); 0 if not a limit record")
+    el("state",    1, "",  "Enum: BMS_state",     "BMS state when recorded")]);
+
 % No vehicle request: the BMS is autonomous (contactor open at start-up, closed by the
 % BMS itself once its checks pass). Entries from the earlier request-based design are
 % removed if present.
@@ -133,13 +159,16 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("diag",     1,      "",     "Bus: DIAG_bus",   "Fault flags")
     el("contactorCmd", 1,  "",     "boolean",         "Main contactor command: true = close")
     el("errorCause",   1,  "",     "Enum: BMS_eventCode", "Why the BMS is in ERROR (NONE outside ERROR)")
-    el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power cycle)")]);
+    el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power cycle)")
+    el("events", nEventSlots, "",  "Bus: BMS_event",  "Log records produced in this BMS step, most severe first (NONE = empty slot)")
+    el("eventCount",   1,  "",     "uint32",          "Log records produced since start-up")
+    el("eventDropped", 1,  "",     "uint32",          "Records lost since start-up because more than the slots occurred in one step (least severe dropped)")]);
 saveChanges(ddIfc);
 
 %% 2. Platform dictionary: reference the contract, keep only platform buses
 ddPlat  = Simulink.data.dictionary.open(platFile);
 secPlat = getSection(ddPlat, "Design Data");
-for n = ["BMS_state" "BMS_eventCode" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
+for n = ["BMS_state" "BMS_eventCode" "BMS_severity" "BMS_event" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
     local = find(secPlat, "Name", n, "DataSource", platFile);
     if ~isempty(local), deleteEntry(local); end   % now supplied by bmsInterface.sldd
 end

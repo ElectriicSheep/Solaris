@@ -16,7 +16,7 @@ function annotateBMS(mdl)
     sec = getSection(Simulink.data.dictionary.open(get_param(mdl, "DataDictionary")), "Design Data");
 
     G = glossary();
-    for L = layers()
+    for L = addLog(layers())
         sys = mdl + "/" + L.name;
         lines = [L.title; ""; "ACRONYMS"; "  " + G(L.acr(:)); ""];
         for k = 1:size(L.ins, 1)
@@ -122,6 +122,28 @@ function L = layers()
                  "ERROR: switch open; retry (back to INITIALIZATION) after faults clear for BMS_tRecover;"
                  "  stays in ERROR after BMS_nRetryMax consecutive errors (count reset after BMS_tRetryReset in NORMAL)"], ...
         "limits", ["ERROR reason for switch faults is not reported in diag; no precharge step"]);
+end
+
+function L = addLog(L)
+    L(end+1) = struct("name", "LOG", ...
+        "title", "LOG - event log: time-stamped INFO / MINOR / MAJOR / FAULT records   (C: LOG_Step; logic logEvents.m)", ...
+        "acr", ["BMS" "DIAG" "SOA" "MOL" "RSL" "MSL" "g"], ...
+        "ins", {{"validData", "BMS_validData", ["iPack" "vMin" "vMax" "tMin" "tMax" "measReady" "vMinIdx" "vMaxIdx" "tMinIdx" "tMaxIdx"]
+                 "diag", "DIAG_bus", ["sensorInvalid" "level" "excursion"]
+                 "plausData", "BMS_plausData", ["vValid" "iValid" "tValid" "cValid"]}}, ...
+        "params", ["BMS_soaLim" "BMS_iRest" "BMS_Ts"], ...
+        "outs", {{"events", "BMS_event"}}, ...
+        "outSignals", ["IN   state (BMS_state), contactorCmd (bool), errorCause (BMS_eventCode), latched (bool)  from the state machine"
+                       "OUT  events = 6 slots of BMS_event per step, most severe first (severity NONE = empty slot)"
+                       "OUT  eventCount (uint32) records since start-up | eventDropped (uint32) records lost: >6 in one step"], ...
+        "does", ["INFO: every state change, start-up check begun (attempt n) / passed, switch closed, first full sample set"
+                 "MINOR / MAJOR / FAULT: a quantity's debounced level rose past MOL / RSL / MSL; record again when it falls"
+                 "  location = worst group (voltage) or sensor (temperature), value = that reading, limit = the limit crossed"
+                 "MAJOR: MSL excursion (exceeded, but shorter than BMS_tDiagSet)"
+                 "FAULT: sensor type invalid (location = channel, 0 = several); ERROR cause; RETRY_LIMIT when latched"
+                 "A 'cleared' record keeps the severity of what cleared, with active = false"], ...
+        "limits", ["Records leave the BMS on BMS_outBus only; non-volatile storage comes with the stored SOC (6.5)"
+                   "Time is BMS run time (task count x BMS_Ts), not wall-clock time"]);
 end
 
 function G = glossary()
