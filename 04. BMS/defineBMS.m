@@ -69,17 +69,23 @@ putBus(secD, bmsFile, "BMS_plausData", "PLAUS -> BMSVL: measurements with per-ch
     el("iValid",  1,      "",  "boolean", "Current channel plausible")
     el("tValid",  nTemp,  "",  "boolean", "Temperature channel plausible")
     el("contactorFb", 1,  "",  "boolean", "Main contactor feedback (as MEAS)")
-    el("cValid",  1,      "",  "boolean", "Contactor feedback plausible (e.g. not stale)")]);
+    el("cValid",  1,      "",  "boolean", "Contactor feedback plausible (e.g. not stale)")
+    el("measReady", 1,    "",  "boolean", "Every sensor type has delivered a new sample since start-up (latched)")]);
 putBus(secD, bmsFile, "BMS_validData", "BMSVL -> SOA, SE, BMS: validated values and extremes", [ ...
     el("vGroup",   nGroup, "V", "double",  "Validated group voltages")
     el("iPack",    1,      "A", "double",  "Validated pack current")
     el("tSensor",  nTemp,  "K", "double",  "Validated temperatures")
-    el("vMin",     1,      "V", "double",  "Lowest valid group voltage")
-    el("vMax",     1,      "V", "double",  "Highest valid group voltage")
-    el("tMin",     1,      "K", "double",  "Lowest valid temperature")
-    el("tMax",     1,      "K", "double",  "Highest valid temperature")
+    el("vMin",     1,      "V", "double",  "Lowest VALID group voltage (last valid value held if none valid)")
+    el("vMax",     1,      "V", "double",  "Highest VALID group voltage (last valid value held if none valid)")
+    el("tMin",     1,      "K", "double",  "Lowest VALID temperature (last valid value held if none valid)")
+    el("tMax",     1,      "K", "double",  "Highest VALID temperature (last valid value held if none valid)")
     el("allValid", 1,      "",  "boolean", "Every channel plausible")
-    el("contactorFb", 1,   "",  "boolean", "Validated main contactor feedback: true = closed")]);
+    el("contactorFb", 1,   "",  "boolean", "Validated main contactor feedback: true = closed")
+    el("measReady", 1,     "",  "boolean", "Every sensor type has delivered a new sample since start-up (latched)")
+    el("vMinIdx",  1,      "",  "uint8",   "Group (1-13) with the lowest valid voltage; 0 = none valid yet")
+    el("vMaxIdx",  1,      "",  "uint8",   "Group (1-13) with the highest valid voltage; 0 = none valid yet")
+    el("tMinIdx",  1,      "",  "uint8",   "Sensor (1-26) with the lowest valid temperature; 0 = none valid yet")
+    el("tMaxIdx",  1,      "",  "uint8",   "Sensor (1-26) with the highest valid temperature; 0 = none valid yet")]);
 putBus(secD, bmsFile, "BMS_soaData", "SOA -> DIAG: limit violations, each [MOL RSL MSL]", [ ...
     el("overVoltage",      3, "", "boolean", "vMax above the limit [MOL RSL MSL]")
     el("underVoltage",     3, "", "boolean", "vMin below the limit [MOL RSL MSL]")
@@ -127,6 +133,42 @@ putParam(secD, bmsFile, "BMS_nRetryMax", 3, "", ...
     "Consecutive ERROR entries allowed before ERROR latches until power cycle");
 putParam(secD, bmsFile, "BMS_tRetryReset", 60, "s", ...
     "Time in NORMAL after which the retry count is reset (a later fault counts as a new first fault)");
+
+% PLAUS: plausibility (sensor-fault) ranges and staleness. PLACEHOLDERS: set from the
+% chosen sensors' ranges and the hardware's sample periods.
+putParam(secD, bmsFile, "BMS_vPlausRange", [1.0 4.5], "V", ...
+    "Plausible group-voltage range [min max]; outside = sensor fault (cell limits are SOA's)");
+putParam(secD, bmsFile, "BMS_iPlausMax", 200, "A", ...
+    "Largest plausible |pack current| (current-sensor range)");
+putParam(secD, bmsFile, "BMS_tPlausRange", [233.15 373.15], "K", ...
+    "Plausible temperature range [min max] (-40 to 100 degC)");
+putParam(secD, bmsFile, "BMS_tStale", [0.3 0.3 3.0 0.3], "s", ...
+    "Longest time each timestamp [V I T C] may stay unchanged before the channel is stale " + ...
+    "(3 x the hardware sample period: 0.1, 0.1, 1.0, 0.1 s)");
+
+% SOA: limits per quantity as [MOL RSL MSL]. MSLs from the Samsung INR18650-35E
+% product specification (Ver. 1.1), scaled to a 7P group, EXCEPT the over-voltage MSL:
+% 4.20 V is the charge (CV) set point, reached in normal use, so the MSL is set above it
+% (4.25 V, engineering judgement, as protection ICs for 4.2 V cells are set above the
+% charge voltage). MOL and RSL margins are placeholders.
+lim.vMax     = [4.21 4.23 4.25];               % V   (charge voltage 4.20 V)
+lim.vMin     = [3.00 2.80 2.65];               % V   (discharge cut-off 2.65 V)
+lim.iDchg    = [45 50 56];                     % A   (7 x 8 A max continuous discharge)
+lim.iChg     = [11.9 12.6 14];                 % A   (7 x 1.7 A standard, 7 x 2.0 A max charge)
+lim.tMaxDchg = [50 55 60]   + 273.15;          % K   (discharge -10 to 60 degC)
+lim.tMinDchg = [0 -5 -10]   + 273.15;
+lim.tMaxChg  = [35 40 45]   + 273.15;          % K   (charge 0 to 45 degC)
+lim.tMinChg  = [10 5 0]     + 273.15;
+putParam(secD, bmsFile, "BMS_soaLim", lim, "", ...
+    "SOA limits, each [MOL RSL MSL]: vMax vMin (V), iDchg iChg (A), tMaxDchg tMinDchg tMaxChg tMinChg (K)");
+putParam(secD, bmsFile, "BMS_iRest", 0.2, "A", ...
+    "Current magnitude below which the pack is not charging/discharging (foxBMS default 200 mA)");
+
+% DIAG: debounce times. PLACEHOLDERS.
+putParam(secD, bmsFile, "BMS_tDiagSet", 0.5, "s", ...
+    "A limit violation or implausible measurement must persist this long to set its fault");
+putParam(secD, bmsFile, "BMS_tDiagClear", 1.0, "s", ...
+    "A fault clears after its violation has been absent this long");
 
 saveChanges(dd);
 fprintf("bms.sldd written: references %s; configuration cfgBMS (%s, %s, %s s)\n", ...

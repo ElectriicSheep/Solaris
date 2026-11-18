@@ -6,12 +6,14 @@
 %   1  stuck open   : the switch never closes. Each close attempt times out after
 %                     BMS_tCloseMax -> ERROR; retry after BMS_tRecover; after
 %                     BMS_nRetryMax ERROR entries the BMS stays in ERROR. No current.
+%                     ERROR cause SWITCH_STUCK_OPEN; latched at the end.
 %   2  welded       : the switch never opens. Feedback reads closed while commanded
 %                     open, so the start-up check never passes; INITIALIZATION times out
 %                     after BMS_tInitMax -> ERROR; retries as above. The BMS never
 %                     commands the switch closed, yet current flows: a welded switch
 %                     cannot be opened by the BMS (the reason for a fuse and an
-%                     independent protection layer).
+%                     independent protection layer). ERROR cause SWITCH_WELDED;
+%                     latched at the end.
 % Checks are on the sequence of states and the number of ERROR entries, not on exact
 % transition times (those depend on the sample rates; they are printed for inspection).
 %
@@ -42,11 +44,17 @@ function runCheck()
         b   = out.logsout.get("bmsOutLog").Values;
         st  = b.state.Data(:);  tS = b.state.Time(:);
         cmd = b.contactorCmd.Data(:);
+        cause = b.errorCause.Data(:);  lat = b.latched.Data(:);
         [~, i] = getLoggedSignal(out, "iPack", "PLANT");
 
         k = [1; find(diff(double(st)) ~= 0) + 1];          % state changes
         fprintf("\n-- fault %d (%s)\n", f, names(f+1));
-        for j = k', fprintf("   t = %6.2f s  -> %s\n", tS(j), string(st(j))); end
+        for j = k'
+            fprintf("   t = %6.2f s  -> %-14s", tS(j), string(st(j)));
+            if st(j) == BMS_state.ERROR, fprintf(" cause %s, latched %d", string(cause(j)), lat(j)); end
+            fprintf("\n");
+        end
+        errCauses = unique(cause(st == BMS_state.ERROR));
         nErr    = nnz(st(k) == BMS_state.ERROR);
         reachedNormal = any(st == BMS_state.NORMAL);
         current = any(abs(i) > 0.01);
@@ -54,9 +62,11 @@ function runCheck()
             nErr, reachedNormal, any(cmd), current);
 
         switch f
-            case 0, ok = reachedNormal && nErr == 0 && current && st(end) == BMS_state.NORMAL;
-            case 1, ok = ~reachedNormal && nErr == nRetry && ~current && st(end) == BMS_state.ERROR;
-            case 2, ok = ~reachedNormal && nErr == nRetry && ~any(cmd) && current && st(end) == BMS_state.ERROR;
+            case 0, ok = reachedNormal && nErr == 0 && current && st(end) == BMS_state.NORMAL && ~any(lat);
+            case 1, ok = ~reachedNormal && nErr == nRetry && ~current && st(end) == BMS_state.ERROR ...
+                         && isequal(errCauses, BMS_eventCode.SWITCH_STUCK_OPEN) && lat(end);
+            case 2, ok = ~reachedNormal && nErr == nRetry && ~any(cmd) && current && st(end) == BMS_state.ERROR ...
+                         && isequal(errCauses, BMS_eventCode.SWITCH_WELDED) && lat(end);
         end
         pass(f+1) = ok;
         fprintf("   %s\n", passFail(ok));

@@ -51,6 +51,43 @@ e.DefaultValue = "INITIALIZATION";
 e.Description  = "BMS system state";
 putEntry(secIfc, ifcFile, "BMS_state", e);
 
+% BMS event codes: what a log record (or an ERROR cause) is about. Groups of 16:
+%   1-15 INFO events, 16-31 limit events (SOA/DIAG), 32-47 sensor validity,
+%   48-63 causes of ERROR (state machine). The record's location field says WHERE
+%   (group 1-13 for voltages, sensor 1-26 for temperatures, 0 = pack / not applicable).
+c = Simulink.data.dictionary.EnumTypeDefinition;
+codes = {
+    "NONE",                       0, "No event (empty record slot / no ERROR cause)"
+    "MEAS_READY",                 1, "Every sensor type has delivered its first sample"
+    "START_CHECK_BEGIN",          2, "Start-up check begun (INITIALIZATION entered); location = attempt number"
+    "START_CHECK_PASSED",         3, "Start-up check passed: main switch commanded closed"
+    "SWITCH_CLOSED",              4, "Main switch closed and confirmed by feedback (NORMAL)"
+    "STATE_CHANGE",               5, "BMS state changed; location = new state, value = previous state"
+    "OVER_VOLTAGE",              16, "Group voltage above a limit; location = group"
+    "UNDER_VOLTAGE",             17, "Group voltage below a limit; location = group"
+    "OVER_CURRENT_DCHG",         18, "Discharge current above a limit"
+    "OVER_CURRENT_CHG",          19, "Charge current above a limit"
+    "OVER_TEMP",                 20, "Temperature above a limit; location = sensor"
+    "UNDER_TEMP",                21, "Temperature below a limit; location = sensor"
+    "SENSOR_V_INVALID",          32, "Voltage measurement implausible or stale; location = group (0 = several)"
+    "SENSOR_I_INVALID",          33, "Current measurement implausible or stale"
+    "SENSOR_T_INVALID",          34, "Temperature measurement implausible or stale; location = sensor (0 = several)"
+    "SENSOR_C_INVALID",          35, "Main switch feedback stale"
+    "DIAG_FAULT",                48, "ERROR cause: a debounced DIAG fault (details in the limit / sensor records)"
+    "SWITCH_STUCK_OPEN",         49, "ERROR cause: switch commanded closed, feedback did not confirm within BMS_tCloseMax"
+    "SWITCH_WELDED",             50, "ERROR cause: feedback reads closed while commanded open (start-up check never passed)"
+    "SWITCH_OPENED_UNEXPECTEDLY",51, "ERROR cause: feedback opened in NORMAL without a DIAG fault"
+    "INIT_TIMEOUT",              52, "ERROR cause: start-up check not passed within BMS_tInitMax"
+    "RETRY_LIMIT",               53, "ERROR latched: BMS_nRetryMax consecutive errors (until power cycle)"};
+for k = 1:size(codes, 1)
+    appendEnumeral(c, codes{k,1}, codes{k,2}, codes{k,3});
+end
+removeEnumeral(c, 1);                       % remove the default placeholder entry
+c.DefaultValue = "NONE";
+c.StorageType  = "uint8";
+c.Description  = "BMS event / fault code (category); see the enumeral descriptions";
+putEntry(secIfc, ifcFile, "BMS_eventCode", c);
+
 % No vehicle request: the BMS is autonomous (contactor open at start-up, closed by the
 % BMS itself once its checks pass). Entries from the earlier request-based design are
 % removed if present.
@@ -78,7 +115,9 @@ putBus(secIfc, ifcFile, "DIAG_bus", "Debounced fault flags from DIAG (contract)"
     el("overTemp",      1, "", "boolean", "Over-temperature fault")
     el("underTemp",     1, "", "boolean", "Under-temperature fault")
     el("sensorInvalid", 1, "", "boolean", "A measurement is out of range or stale")
-    el("anyFatal",      1, "", "boolean", "At least one fatal fault present (debounced, not latched: latching and retries are done by the BMS state machine)")]);
+    el("anyFatal",      1, "", "boolean", "At least one fatal fault present (debounced, not latched: latching and retries are done by the BMS state machine)")
+    el("level",         6, "", "uint8",   "Debounced limit level per quantity [OV UV OCdchg OCchg OT UT]: 0 none, 1 MOL (MINOR), 2 RSL (MAJOR), 3 MSL (FAULT)")
+    el("excursion",     6, "", "boolean", "MSL exceeded but cleared before BMS_tDiagSet (one-step pulse), same order as level")]);
 
 % BMS_outBus
 putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
@@ -92,13 +131,15 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("tMax",     1,      "K",    "double",          "Highest validated temperature")
     el("state",    1,      "",     "Enum: BMS_state", "BMS system state")
     el("diag",     1,      "",     "Bus: DIAG_bus",   "Fault flags")
-    el("contactorCmd", 1,  "",     "boolean",         "Main contactor command: true = close")]);
+    el("contactorCmd", 1,  "",     "boolean",         "Main contactor command: true = close")
+    el("errorCause",   1,  "",     "Enum: BMS_eventCode", "Why the BMS is in ERROR (NONE outside ERROR)")
+    el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power cycle)")]);
 saveChanges(ddIfc);
 
 %% 2. Platform dictionary: reference the contract, keep only platform buses
 ddPlat  = Simulink.data.dictionary.open(platFile);
 secPlat = getSection(ddPlat, "Design Data");
-for n = ["BMS_state" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
+for n = ["BMS_state" "BMS_eventCode" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
     local = find(secPlat, "Name", n, "DataSource", platFile);
     if ~isempty(local), deleteEntry(local); end   % now supplied by bmsInterface.sldd
 end
