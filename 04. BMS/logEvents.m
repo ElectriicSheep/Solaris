@@ -29,11 +29,16 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
 %   A "cleared" record keeps the severity of what cleared, with active = false.
 %   Limit records: location = worst group (voltage) or sensor (temperature), value =
 %   that extreme (or the current), limit = the limit at that level.
+%   Within one step, limit and sensor records come before the state-machine records, so
+%   a specific fault is listed before the ERROR it caused.
 %   Called from one MATLAB Function block only (history kept in persistent variables).
 
     nSlots = 6;                                   % = BMS_event slots on BMS_outBus
-    persistent k prevState prevCmd prevCause prevLevel prevReady prevInv count_ dropped_ attempt
+    persistent k prevState prevCmd prevCause prevLevel prevReady prevInv prevInvLoc count_ dropped_ attempt ...
+               tracking peakVal peakLoc
     if isempty(k)
+        prevInvLoc = zeros(4, 1, "uint8");
+        tracking = false(6, 1);  peakVal = zeros(6, 1);  peakLoc = zeros(6, 1, "uint8");
         k = 0;  prevState = state;  prevCmd = false;  prevCause = BMS_eventCode.NONE;
         prevLevel = zeros(6, 1, "uint8");  prevReady = false;  prevInv = false(4, 1);
         count_ = uint32(0);  dropped_ = uint32(0);  attempt = uint8(0);
@@ -44,6 +49,48 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
         "active", false, "location", uint8(0), "level", uint8(0), "value", 0, "limit", 0, ...
         "state", state);
     c = repmat(blank, 24, 1);  n = 0;             % candidates for this step
+
+    % --- limits: debounced level changes and MSL excursions ---
+    charging = v.iPack < -iRest;
+    for q = 1:6
+        [code, loc, val, L3] = quantity(q, v, lim, charging);
+        Ln = d.level(q);  Lp = prevLevel(q);
+        if Ln > Lp
+            n = n + 1; c(n) = rec(blank, t, sevOf(Ln), code, true, loc, Ln, val, L3(Ln));
+        elseif Ln < Lp
+            n = n + 1; c(n) = rec(blank, t, sevOf(Lp), code, false, loc, Lp, val, L3(Lp));
+        end
+        % track the worst reading while the MSL is exceeded (an excursion is only known
+        % when it has ended, so its record carries the peak and where it occurred)
+        if q == 2 || q == 6, beyond = val < L3(3); worse = val < peakVal(q);
+        else,               beyond = val > L3(3); worse = val > peakVal(q); end
+        if beyond && (~tracking(q) || worse)
+            peakVal(q) = val;  peakLoc(q) = loc;
+        end
+        if d.excursion(q)
+            n = n + 1; c(n) = rec(blank, t, BMS_severity.MAJOR, code, true, peakLoc(q), uint8(3), peakVal(q), L3(3));
+        end
+        tracking(q) = beyond;
+    end
+
+    % --- sensor validity (when DIAG's debounced sensorInvalid changes) ---
+    sCodes = [BMS_eventCode.SENSOR_V_INVALID, BMS_eventCode.SENSOR_I_INVALID, ...
+              BMS_eventCode.SENSOR_T_INVALID, BMS_eventCode.SENSOR_C_INVALID];
+    nBad = [nnz(~p.vValid), nnz(~p.iValid), nnz(~p.tValid), nnz(~p.cValid)];
+    first = [firstFalse(p.vValid), uint8(0), firstFalse(p.tValid), uint8(0)];
+    inv = d.sensorInvalid & (nBad(:) > 0);
+    for s = 1:4
+        if inv(s) && ~prevInv(s)
+            loc = first(s); if nBad(s) > 1, loc = uint8(0); end
+            prevInvLoc(s) = loc;
+            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), true, loc, uint8(0), double(nBad(s)), 0);
+        elseif ~d.sensorInvalid && prevInv(s)
+            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), false, prevInvLoc(s), uint8(0), 0, 0);
+            inv(s) = false;
+        elseif prevInv(s)
+            inv(s) = true;                       % still reported as active
+        end
+    end
 
     % --- start-up and state machine (INFO, and FAULT for ERROR causes) ---
     if k == 1 || state ~= prevState
@@ -69,39 +116,6 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
     end
     if v.measReady && ~prevReady
         n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.MEAS_READY, true, uint8(0), 0, 0, 0);
-    end
-
-    % --- limits: debounced level changes and MSL excursions ---
-    charging = v.iPack < -iRest;
-    for q = 1:6
-        [code, loc, val, L3] = quantity(q, v, lim, charging);
-        Ln = d.level(q);  Lp = prevLevel(q);
-        if Ln > Lp
-            n = n + 1; c(n) = rec(blank, t, sevOf(Ln), code, true, loc, Ln, val, L3(Ln));
-        elseif Ln < Lp
-            n = n + 1; c(n) = rec(blank, t, sevOf(Lp), code, false, loc, Lp, val, L3(Lp));
-        end
-        if d.excursion(q)
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.MAJOR, code, true, loc, uint8(3), val, L3(3));
-        end
-    end
-
-    % --- sensor validity (when DIAG's debounced sensorInvalid changes) ---
-    sCodes = [BMS_eventCode.SENSOR_V_INVALID, BMS_eventCode.SENSOR_I_INVALID, ...
-              BMS_eventCode.SENSOR_T_INVALID, BMS_eventCode.SENSOR_C_INVALID];
-    nBad = [nnz(~p.vValid), nnz(~p.iValid), nnz(~p.tValid), nnz(~p.cValid)];
-    first = [firstFalse(p.vValid), uint8(0), firstFalse(p.tValid), uint8(0)];
-    inv = d.sensorInvalid & (nBad(:) > 0);
-    for s = 1:4
-        if inv(s) && ~prevInv(s)
-            loc = first(s); if nBad(s) > 1, loc = uint8(0); end
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), true, loc, uint8(0), double(nBad(s)), 0);
-        elseif ~d.sensorInvalid && prevInv(s)
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), false, uint8(0), uint8(0), 0, 0);
-            inv(s) = false;
-        elseif prevInv(s)
-            inv(s) = true;                       % still reported as active
-        end
     end
 
     % --- most severe first into the slots ---

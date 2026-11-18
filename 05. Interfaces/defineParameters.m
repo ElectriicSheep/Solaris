@@ -14,7 +14,13 @@ p = { "LOAD_profile",       1,       "",   "Active load, selectable while runnin
       "LOAD_pulseDuty",     50,      "",   "Pulse on-time, percent of period"
       "LOAD_scale",         1,       "",   "Scale factor on the CYCLE profiles"
       "PLANT_tAmbient",     288.15,  "K",  "Ambient temperature (match T0 in the battery params)"
-      "PLANT_switchFault",  0,       "",   "Main switch fault injection, selectable while running: 0 = none, 1 = stuck open, 2 = welded (stuck closed); other = none" };
+      "PLANT_switchFault",  0,       "",   "Main switch fault injection, selectable while running: 0 = none, 1 = stuck open, 2 = welded (stuck closed); other = none"
+      "SENS_faultType",     0,       "",   "Measurement fault injection (sensFaultInject.m): 0 none, 1 voltage offset, 2 temperature offset, 3 temperatures stop updating, 4 voltage channel open"
+      "SENS_faultChannel",  1,       "",   "Fault channel: group 1-13 (voltage) or sensor 1-26 (temperature)"
+      "SENS_faultValue",    0,       "",   "Offset magnitude for fault types 1 (V) and 2 (K)"
+      "SENS_faultStart",    0,       "s",  "Fault start time"
+      "SENS_faultDuration", 1e6,     "s",  "Fault duration (1e6 = permanent)"
+      "SENS_faultRamp",     0,       "s",  "Offsets ramp in linearly over this time (0 = step)" };
 
 % LOAD_variant (compile-time variant choice) was replaced by LOAD_profile (run-time switch)
 if exist(sec, "LOAD_variant"), deleteEntry(sec, "LOAD_variant"); end
