@@ -40,14 +40,15 @@ secIfc = getSection(ddIfc, "Design Data");
 
 % BMS state enumeration
 e = Simulink.data.dictionary.EnumTypeDefinition;
-% Autonomous BMS: no external state requests. The main switch is open in
-% INITIALIZATION until the start-up checks pass; the BMS then closes it itself and
-% enters NORMAL once the switch feedback confirms it.
+% Autonomous BMS: no external state requests. OFF until the power button is long-pressed;
+% the main switch is open in INITIALIZATION until the start-up checks pass; the BMS then
+% closes it itself and enters NORMAL once the switch feedback confirms it.
 appendEnumeral(e, "INITIALIZATION", 0, "Switch open: start-up checks and SOC initialisation, then close and confirm");
 appendEnumeral(e, "NORMAL",         1, "Switch closed: running and monitoring");
 appendEnumeral(e, "ERROR",          2, "Switch open: fault; automatic retry after recovery, latched after the retry limit");
+appendEnumeral(e, "OFF",            3, "Switched off by the power button (or not yet switched on): switch open, BMS inactive");
 removeEnumeral(e, 1);                       % remove the default placeholder entry
-e.DefaultValue = "INITIALIZATION";
+e.DefaultValue = "OFF";
 e.Description  = "BMS system state";
 putEntry(secIfc, ifcFile, "BMS_state", e);
 
@@ -64,6 +65,9 @@ codes = {
     "SWITCH_CLOSED",              4, "Main switch closed and confirmed by feedback (NORMAL)"
     "STATE_CHANGE",               5, "BMS state changed; location = new state, value = previous state"
     "SOC_INIT",                   6, "SOC initialised at start-up; location = method (1 stored, 2 stored/OCV blend, 3 OCV), value = rest time (s)"
+    "POWER_ON",                   8, "Power button long-pressed while off: BMS woken, start-up check follows"
+    "POWER_OFF",                  9, "Power button long-pressed while on: switch opened, record saved, BMS off"
+    "RESET",                     10, "Reset button long-pressed: restart with SOC from OCV, ERROR latch cleared"
     "SOC_MISMATCH",               7, "Stored SOC disagrees with OCV beyond BMS_socMismatchTol (battery recharged or swapped while off): OCV used; location = group with the largest difference, value = that difference"
     "OVER_VOLTAGE",              16, "Group voltage above a limit; location = group"
     "UNDER_VOLTAGE",             17, "Group voltage below a limit; location = group"
@@ -80,7 +84,7 @@ codes = {
     "SWITCH_WELDED",             50, "ERROR cause: feedback reads closed while commanded open (start-up check never passed)"
     "SWITCH_OPENED_UNEXPECTEDLY",51, "ERROR cause: feedback opened in NORMAL without a DIAG fault"
     "INIT_TIMEOUT",              52, "ERROR cause: start-up check not passed within BMS_tInitMax"
-    "RETRY_LIMIT",               53, "ERROR latched: BMS_nRetryMax consecutive errors (until power cycle)"};
+    "RETRY_LIMIT",               53, "ERROR latched: BMS_nRetryMax consecutive errors (until power off/on or reset)"};
 for k = 1:size(codes, 1)
     appendEnumeral(c, codes{k,1}, codes{k,2}, codes{k,3});
 end
@@ -102,7 +106,9 @@ putBus(secIfc, ifcFile, "BMS_nvmRecord", "Record kept in non-volatile memory ove
 % BMS board peripherals read by the BMS (not measurements of the battery)
 putBus(secIfc, ifcFile, "BMS_hwIn", "BMS board inputs: real-time clock and the stored record (contract)", [ ...
     el("rtcNow",   1,      "s", "double",  "Real-time clock now (battery-backed; keeps time while the BMS is off)")
-    el("nvm",      1,      "",  "Bus: BMS_nvmRecord", "Record read from non-volatile memory at power-up")]);
+    el("nvm",      1,      "",  "Bus: BMS_nvmRecord", "Record read from non-volatile memory at power-up")
+    el("powerBtn", 1,      "",  "boolean", "Power button pressed (long press BMS_tPowerPress: on / off)")
+    el("resetBtn", 1,      "",  "boolean", "Reset button pressed (long press BMS_tResetPress: restart, SOC from OCV)")]);
 
 % Log severity (one per record)
 v = Simulink.data.dictionary.EnumTypeDefinition;
@@ -175,7 +181,7 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("diag",     1,      "",     "Bus: DIAG_bus",   "Fault flags")
     el("contactorCmd", 1,  "",     "boolean",         "Main contactor command: true = close")
     el("errorCause",   1,  "",     "Enum: BMS_eventCode", "Why the BMS is in ERROR (NONE outside ERROR)")
-    el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power cycle)")
+    el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power off/on or reset)")
     el("events", nEventSlots, "",  "Bus: BMS_event",  "Log records produced in this BMS step, most severe first (NONE = empty slot)")
     el("eventCount",   1,  "",     "uint32",          "Log records produced since start-up")
     el("eventDropped", 1,  "",     "uint32",          "Records lost since start-up because more than the slots occurred in one step (least severe dropped)")

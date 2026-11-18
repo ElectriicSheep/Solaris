@@ -1,6 +1,6 @@
-function d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts)
+function d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts, awake, boot)
 %DIAGDEBOUNCE BMS DIAG layer: debounced fault flags and limit levels from SOA and PLAUS.
-%   d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts)
+%   d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts, awake, boot)
 %   s         BMS_soaData (limit violations, each [MOL RSL MSL])
 %   allValid  every measurement channel plausible (from BMSVL)
 %   measReady every sensor type has delivered its first sample since start-up; until
@@ -8,6 +8,8 @@ function d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts)
 %   tSet      a violation must persist this long to set, s
 %   tClear    a set condition clears after being absent this long, s
 %   Ts        BMS task period, s (this function is called once per task)
+%   awake     BMS on; while off nothing is evaluated
+%   boot      restart as after a power-up: counters cleared
 %   d         DIAG_bus
 %
 %   Every limit level of every quantity is debounced the same way (18 conditions:
@@ -26,10 +28,11 @@ function d = diagDebounce(s, allValid, measReady, tSet, tClear, Ts)
     R = [R(:); ~allValid];                                              % 19 x 1
 
     persistent nOn nOff active
-    if isempty(active) || ~measReady
+    ready = measReady && awake;
+    if isempty(active) || ~ready || boot
         nOn = zeros(19, 1);  nOff = zeros(19, 1);  active = false(19, 1);
     end
-    if ~measReady
+    if ~ready
         R(:) = false;                        % power-up: no evaluation yet
     end
 

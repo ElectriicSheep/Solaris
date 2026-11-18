@@ -36,6 +36,16 @@ s.Unit = "s";
 s.Description = "BMS real-time clock at the start of the run (arbitrary epoch); rest time = HW_rtcStart - HW_nvm.tSave";
 putEntry(sec, "HW_rtcStart", s);
 
+% Buttons on the battery (BMS_HW block): up to 4 presses each, rows [start duration] in
+% s; rows with a negative start are unused. Default: power pressed for 1.2 s at start-up
+% (the BMS starts OFF and needs the 1 s long press to switch on).
+s = Simulink.Parameter([0 1.2; -1 0; -1 0; -1 0]);
+s.Unit = "s";  s.Description = "Power button presses [start duration] (s), up to 4 rows; negative start = unused";
+putEntry(sec, "HW_powerPress", s);
+s = Simulink.Parameter([-1 0; -1 0; -1 0; -1 0]);
+s.Unit = "s";  s.Description = "Reset button presses [start duration] (s), up to 4 rows; negative start = unused";
+putEntry(sec, "HW_resetPress", s);
+
 % LOAD_variant (compile-time variant choice) was replaced by LOAD_profile (run-time switch)
 if exist(sec, "LOAD_variant"), deleteEntry(sec, "LOAD_variant"); end
 

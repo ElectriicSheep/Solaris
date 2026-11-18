@@ -104,8 +104,15 @@ putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
     el("socInitMismatch", 1, "",  "boolean", "Stored SOC disagreed with OCV beyond BMS_socMismatchTol (OCV used)")
     el("socInitDiff",     1, "1", "double",  "Largest |stored - OCV| SOC difference over the groups at initialisation")
     el("socInitDiffIdx",  1, "",  "uint8",   "Group (1-13) with that largest difference; 0 = not evaluated")
-    el("socInitRest",     1, "s", "double",  "Rest time since the stored record was saved (rtcNow - tSave)")
+    el("socInitRest",     1, "s", "double",  "Rest time since the stored record was saved (rtcNow - tSave); -1 = no stored record used (none valid, or reset)")
     el("nvm",             1, "",  "Bus: BMS_nvmRecord", "Record to save (current SOC, time, valid once SOC is initialised)")]);
+
+putBus(secD, bmsFile, "BMS_pwrData", "PWR -> all layers: power and reset state from the buttons", [ ...
+    el("awake",    1, "", "boolean", "BMS on (woken by a power long press, until the next one)")
+    el("boot",     1, "", "boolean", "One-step pulse: every layer restarts as after a power-up (wake or reset)")
+    el("reset",    1, "", "boolean", "One-step pulse: reset long press (SOC from OCV, ERROR latch cleared)")
+    el("powerOn",  1, "", "boolean", "One-step pulse: woken by the power button")
+    el("powerOff", 1, "", "boolean", "One-step pulse: switched off by the power button")]);
 
 %% BMS parameters
 % PLACEHOLDERS: copied from the plant's nominal placeholder cell
@@ -133,6 +140,10 @@ putParam(secD, bmsFile, "BMS_tRelax", 7200, "s", ...
     "Rest time after which the OCV is fully trusted at start-up (shorter rests blend stored SOC and OCV linearly)");
 putParam(secD, bmsFile, "BMS_socMismatchTol", 0.10, "1", ...
     "Largest stored-vs-OCV SOC difference explained by OCV error; beyond it the battery is taken as recharged or swapped while off and OCV is used");
+
+% Buttons (PWR layer)
+putParam(secD, bmsFile, "BMS_tPowerPress", 1, "s", "Power button long-press time: switches the BMS on (from OFF) or off");
+putParam(secD, bmsFile, "BMS_tResetPress", 3, "s", "Reset button long-press time: restart with SOC from OCV, ERROR latch cleared");
 
 % State machine (BMS layer). PLACEHOLDER times, to be set against the hardware
 % (switch operating time, sensor rates) and the system safety requirements.

@@ -90,10 +90,18 @@ function [fc, txt] = describe(r)
         case BMS_eventCode.START_CHECK_PASSED
             fc = "START";  txt = sprintf("start-up check passed (attempt %d): closing main switch", g);
         case BMS_eventCode.RETRY_LIMIT
-            fc = "ERR-LATCHED";  txt = sprintf("retry limit reached after %d attempts: ERROR latched until power cycle", g);
+            fc = "ERR-LATCHED";  txt = sprintf("retry limit reached after %d attempts: ERROR latched until power off/on or reset", g);
         case BMS_eventCode.SOC_INIT
             how = ["from the stored SOC", "blending stored SOC and OCV", "from OCV"];
-            fc = "SOC";  txt = sprintf("SOC initialised %s (rest %.1f min)", how(max(min(g,3),1)), r.value/60);
+            fc = "SOC";
+            if r.value < 0, txt = sprintf("SOC initialised %s (no stored record used: none valid, or reset)", how(max(min(g,3),1)));
+            else, txt = sprintf("SOC initialised %s (rest %.1f min)", how(max(min(g,3),1)), r.value/60); end
+        case BMS_eventCode.POWER_ON
+            fc = "PWR";  txt = "power button: BMS switched on";
+        case BMS_eventCode.POWER_OFF
+            fc = "PWR";  txt = "power button: main switch opened, record saved, BMS off";
+        case BMS_eventCode.RESET
+            fc = "RESET";  txt = "reset button: restart with SOC from OCV, ERROR latch cleared";
         case BMS_eventCode.SOC_MISMATCH
             fc = sprintf("SOC-MIS-M%d-G%02d", moduleOf(max(g,1)), g);
             txt = sprintf("stored SOC differs from OCV by %.1f %% (group %d) > %.1f %%: recharged or swapped while off, OCV used", 100*r.value, g, 100*r.limit);

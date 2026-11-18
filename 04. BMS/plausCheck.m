@@ -1,12 +1,13 @@
-function p = plausCheck(m, vRange, iMax, tRange, tStale, Ts)
+function p = plausCheck(m, vRange, iMax, tRange, tStale, Ts, boot)
 %PLAUSCHECK BMS PLAUS layer: per-channel plausibility of the measurements.
-%   p = plausCheck(m, vRange, iMax, tRange, tStale, Ts)
+%   p = plausCheck(m, vRange, iMax, tRange, tStale, Ts, boot)
 %   m       BMS_measData (calibrated measurements with sample timestamps)
 %   vRange  [min max] plausible group voltage, V    (outside = sensor fault, not a cell fault)
 %   iMax    largest plausible |pack current|, A
 %   tRange  [min max] plausible temperature, K
 %   tStale  [V I T C] longest time a timestamp may stay unchanged, s
 %   Ts      BMS task period, s (this function is called once per task)
+%   boot    restart as after a power-up (power on or reset): history cleared
 %   p       BMS_plausData: the measurements plus one validity flag per channel, and
 %           measReady (every sensor type has delivered a new sample since start-up)
 %
@@ -23,7 +24,7 @@ function p = plausCheck(m, vRange, iMax, tRange, tStale, Ts)
 
     persistent tsLast age received
     ts = [m.tsV; m.tsI; m.tsT; m.tsC];
-    if isempty(tsLast)
+    if isempty(tsLast) || boot
         tsLast   = ts;
         age      = zeros(4, 1);
         received = false(4, 1);

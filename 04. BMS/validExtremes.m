@@ -1,8 +1,9 @@
-function v = validExtremes(p, lim)
+function v = validExtremes(p, lim, boot)
 %VALIDEXTREMES BMS BMSVL layer: validated values, pack extremes over VALID channels only.
-%   v = validExtremes(p, lim)
+%   v = validExtremes(p, lim, boot)
 %   p    BMS_plausData (measurements with per-channel validity, measReady)
 %   lim  BMS_soaLim (only used for the value reported before any valid sample)
+%   boot restart as after a power-up: held extremes cleared
 %   v    BMS_validData
 %
 %   vMin/vMax/tMin/tMax are taken over valid channels only, so an implausible channel
@@ -14,7 +15,7 @@ function v = validExtremes(p, lim)
 %   persistent).
 
     persistent vLo vHi tLo tHi iv iV it iT
-    if isempty(vLo)
+    if isempty(vLo) || boot
         iv = uint8(0);  iV = uint8(0);  it = uint8(0);  iT = uint8(0);
         vMid = (lim.vMin(1) + lim.vMax(1)) / 2;
         tMid = (lim.tMinDchg(1) + lim.tMaxDchg(1)) / 2;

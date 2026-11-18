@@ -1,10 +1,11 @@
-function [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, latched, lim, iRest, socTol, Ts)
+function [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause, latched, lim, iRest, socTol, Ts)
 %LOGEVENTS BMS LOG layer: turns changes in the BMS into time-stamped log records.
-%   [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, latched, lim, iRest, socTol, Ts)
+%   [events, count, dropped] = logEvents(v, d, p, se, pw, state, cmd, cause, latched, lim, iRest, socTol, Ts)
 %   v        BMS_validData  (extremes, their group/sensor index, iPack, measReady)
 %   d        DIAG_bus       (level per quantity, excursion pulses, sensorInvalid)
 %   p        BMS_plausData  (per-channel validity: which sensor is invalid)
 %   se       BMS_seData     (how SOC was initialised at start-up)
+%   pw       BMS_pwrData    (power on / off / reset pulses)
 %   state    BMS_state      cmd     main switch command (true = close)
 %   cause    BMS_eventCode  why the BMS is in ERROR     latched  ERROR latched
 %   lim      BMS_soaLim     (limit values written into limit records)
@@ -21,6 +22,7 @@ function [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, la
 %     INFO  START_CHECK_BEGIN   INITIALIZATION entered (location = attempt number)
 %     INFO  START_CHECK_PASSED  switch commanded closed in INITIALIZATION
 %     INFO  SWITCH_CLOSED       NORMAL entered (feedback confirmed)
+%     INFO  POWER_ON / POWER_OFF / RESET   button long presses
 %     INFO  SOC_INIT            SOC initialised (location = method 1 stored, 2 blend, 3 OCV;
 %                               value = rest time, s)
 %     MINOR SOC_MISMATCH        stored SOC disagreed with OCV (recharged / swapped while off);
@@ -56,50 +58,68 @@ function [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, la
         "state", state);
     c = repmat(blank, 24, 1);  n = 0;             % candidates for this step
 
-    % --- limits: debounced level changes and MSL excursions ---
-    charging = v.iPack < -iRest;
-    for q = 1:6
-        [code, loc, val, L3] = quantity(q, v, lim, charging);
-        Ln = d.level(q);  Lp = prevLevel(q);
-        if Ln > Lp
-            n = n + 1; c(n) = rec(blank, t, sevOf(Ln), code, true, loc, Ln, val, L3(Ln));
-        elseif Ln < Lp
-            n = n + 1; c(n) = rec(blank, t, sevOf(Lp), code, false, loc, Lp, val, L3(Lp));
+    % While off the BMS is inactive: only button and state-change records.
+    inv = prevInv;
+    if pw.awake
+        % --- limits: debounced level changes and MSL excursions ---
+        charging = v.iPack < -iRest;
+        for q = 1:6
+            [code, loc, val, L3] = quantity(q, v, lim, charging);
+            Ln = d.level(q);  Lp = prevLevel(q);
+            if Ln > Lp
+                n = n + 1; c(n) = rec(blank, t, sevOf(Ln), code, true, loc, Ln, val, L3(Ln));
+            elseif Ln < Lp
+                n = n + 1; c(n) = rec(blank, t, sevOf(Lp), code, false, loc, Lp, val, L3(Lp));
+            end
+            % track the worst reading while the MSL is exceeded (an excursion is only known
+            % when it has ended, so its record carries the peak and where it occurred)
+            if q == 2 || q == 6, beyond = val < L3(3); worse = val < peakVal(q);
+            else,               beyond = val > L3(3); worse = val > peakVal(q); end
+            if beyond && (~tracking(q) || worse)
+                peakVal(q) = val;  peakLoc(q) = loc;
+            end
+            if d.excursion(q)
+                n = n + 1; c(n) = rec(blank, t, BMS_severity.MAJOR, code, true, peakLoc(q), uint8(3), peakVal(q), L3(3));
+            end
+            tracking(q) = beyond;
         end
-        % track the worst reading while the MSL is exceeded (an excursion is only known
-        % when it has ended, so its record carries the peak and where it occurred)
-        if q == 2 || q == 6, beyond = val < L3(3); worse = val < peakVal(q);
-        else,               beyond = val > L3(3); worse = val > peakVal(q); end
-        if beyond && (~tracking(q) || worse)
-            peakVal(q) = val;  peakLoc(q) = loc;
+
+        % --- sensor validity (when DIAG's debounced sensorInvalid changes) ---
+        sCodes = [BMS_eventCode.SENSOR_V_INVALID, BMS_eventCode.SENSOR_I_INVALID, ...
+                  BMS_eventCode.SENSOR_T_INVALID, BMS_eventCode.SENSOR_C_INVALID];
+        nBad = [nnz(~p.vValid), nnz(~p.iValid), nnz(~p.tValid), nnz(~p.cValid)];
+        first = [firstFalse(p.vValid), uint8(0), firstFalse(p.tValid), uint8(0)];
+        inv = d.sensorInvalid & (nBad(:) > 0);
+        for s = 1:4
+            if inv(s) && ~prevInv(s)
+                loc = first(s); if nBad(s) > 1, loc = uint8(0); end
+                prevInvLoc(s) = loc;
+                n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), true, loc, uint8(0), double(nBad(s)), 0);
+            elseif ~d.sensorInvalid && prevInv(s)
+                n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), false, prevInvLoc(s), uint8(0), 0, 0);
+                inv(s) = false;
+            elseif prevInv(s)
+                inv(s) = true;                       % still reported as active
+            end
         end
-        if d.excursion(q)
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.MAJOR, code, true, peakLoc(q), uint8(3), peakVal(q), L3(3));
-        end
-        tracking(q) = beyond;
     end
 
-    % --- sensor validity (when DIAG's debounced sensorInvalid changes) ---
-    sCodes = [BMS_eventCode.SENSOR_V_INVALID, BMS_eventCode.SENSOR_I_INVALID, ...
-              BMS_eventCode.SENSOR_T_INVALID, BMS_eventCode.SENSOR_C_INVALID];
-    nBad = [nnz(~p.vValid), nnz(~p.iValid), nnz(~p.tValid), nnz(~p.cValid)];
-    first = [firstFalse(p.vValid), uint8(0), firstFalse(p.tValid), uint8(0)];
-    inv = d.sensorInvalid & (nBad(:) > 0);
-    for s = 1:4
-        if inv(s) && ~prevInv(s)
-            loc = first(s); if nBad(s) > 1, loc = uint8(0); end
-            prevInvLoc(s) = loc;
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), true, loc, uint8(0), double(nBad(s)), 0);
-        elseif ~d.sensorInvalid && prevInv(s)
-            n = n + 1; c(n) = rec(blank, t, BMS_severity.FAULT, sCodes(s), false, prevInvLoc(s), uint8(0), 0, 0);
-            inv(s) = false;
-        elseif prevInv(s)
-            inv(s) = true;                       % still reported as active
-        end
+    % --- buttons ---
+    if pw.powerOn
+        n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.POWER_ON, true, uint8(0), uint8(0), 0, 0);
+    end
+    if pw.reset
+        n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.RESET, true, uint8(0), uint8(0), 0, 0);
+    end
+    if pw.powerOff
+        n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.POWER_OFF, true, uint8(0), uint8(0), 0, 0);
+    end
+    if pw.boot
+        prevInit = uint8(0);  prevReady = false;  prevLevel(:) = 0;  prevInv(:) = false;  attempt = uint8(0);
     end
 
     % --- start-up SOC initialisation ---
-    if se.socInitMethod > 0 && prevInit == 0
+    if pw.awake && se.socInitMethod > 0 && prevInit == 0
         if se.socInitMismatch
             n = n + 1; c(n) = rec(blank, t, BMS_severity.MINOR, BMS_eventCode.SOC_MISMATCH, true, se.socInitDiffIdx, uint8(0), se.socInitDiff, socTol);
         end
@@ -129,7 +149,7 @@ function [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, la
     if state == BMS_state.INITIALIZATION && cmd && ~prevCmd
         n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.START_CHECK_PASSED, true, attempt, 0, 0, 0);
     end
-    if v.measReady && ~prevReady
+    if pw.awake && v.measReady && ~prevReady
         n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.MEAS_READY, true, uint8(0), 0, 0, 0);
     end
 
