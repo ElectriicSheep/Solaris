@@ -46,7 +46,8 @@ set_param(cs, ...
     "GenCodeOnly", "on", ...                            % compile on the Pi later, with its own toolchain
     "GenerateReport", "on", ...
     "LaunchReport", "off", ...
-    "GenerateComments", "on");
+    "GenerateComments", "on", ...
+    "UnderspecifiedInitializationDetection", "Simplified");   % must match the platform (cfgHarness)
 putEntry(getSection(dd, "Configurations"), bmsFile, "cfgBMS", cs);
 
 %% Internal buses: one per layer output (never part of the contract)
@@ -98,7 +99,13 @@ putBus(secD, bmsFile, "BMS_seData", "SE -> output: state estimates", [ ...
     el("sohR",     nGroup, "1", "double", "Resistance SOH per group (1 = new)")
     el("sohQ",     nGroup, "1", "double", "Capacity SOH per group (1 = new)")
     el("socPack",  1,      "1", "double", "Pack SOC (minimum group SOC)")
-    el("sohPack",  1,      "1", "double", "Pack SOH (worst group)")]);
+    el("sohPack",  1,      "1", "double", "Pack SOH (worst group)")
+    el("socInitMethod",   1, "",  "uint8",   "How SOC was initialised: 0 not yet, 1 stored, 2 stored/OCV blend, 3 OCV")
+    el("socInitMismatch", 1, "",  "boolean", "Stored SOC disagreed with OCV beyond BMS_socMismatchTol (OCV used)")
+    el("socInitDiff",     1, "1", "double",  "Largest |stored - OCV| SOC difference over the groups at initialisation")
+    el("socInitDiffIdx",  1, "",  "uint8",   "Group (1-13) with that largest difference; 0 = not evaluated")
+    el("socInitRest",     1, "s", "double",  "Rest time since the stored record was saved (rtcNow - tSave)")
+    el("nvm",             1, "",  "Bus: BMS_nvmRecord", "Record to save (current SOC, time, valid once SOC is initialised)")]);
 
 %% BMS parameters
 % PLACEHOLDERS: copied from the plant's nominal placeholder cell
@@ -118,6 +125,14 @@ putParam(secD, bmsFile, "BMS_ocvSoc", 0:0.1:1, "1", ...
 putParam(secD, bmsFile, "BMS_ocvV", ...
     [2.650 3.380 3.510 3.590 3.655 3.725 3.795 3.875 3.970 4.075 4.200], "V", ...
     "Cell (= group) OCV at BMS_ocvSoc, strictly increasing (placeholder)");
+
+% SOC start-up initialisation (SE). PLACEHOLDERS: relaxation time depends on chemistry
+% (NMC ~2 h to 98 % of the steady-state OCV, NCA slower: Theuerkauf & Swan 2022); confirm
+% the 35E chemistry and measure it on real cells.
+putParam(secD, bmsFile, "BMS_tRelax", 7200, "s", ...
+    "Rest time after which the OCV is fully trusted at start-up (shorter rests blend stored SOC and OCV linearly)");
+putParam(secD, bmsFile, "BMS_socMismatchTol", 0.10, "1", ...
+    "Largest stored-vs-OCV SOC difference explained by OCV error; beyond it the battery is taken as recharged or swapped while off and OCV is used");
 
 % State machine (BMS layer). PLACEHOLDER times, to be set against the hardware
 % (switch operating time, sensor rates) and the system safety requirements.

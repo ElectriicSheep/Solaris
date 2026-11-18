@@ -1,13 +1,15 @@
-function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latched, lim, iRest, Ts)
+function [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, latched, lim, iRest, socTol, Ts)
 %LOGEVENTS BMS LOG layer: turns changes in the BMS into time-stamped log records.
-%   [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latched, lim, iRest, Ts)
+%   [events, count, dropped] = logEvents(v, d, p, se, state, cmd, cause, latched, lim, iRest, socTol, Ts)
 %   v        BMS_validData  (extremes, their group/sensor index, iPack, measReady)
 %   d        DIAG_bus       (level per quantity, excursion pulses, sensorInvalid)
 %   p        BMS_plausData  (per-channel validity: which sensor is invalid)
+%   se       BMS_seData     (how SOC was initialised at start-up)
 %   state    BMS_state      cmd     main switch command (true = close)
 %   cause    BMS_eventCode  why the BMS is in ERROR     latched  ERROR latched
 %   lim      BMS_soaLim     (limit values written into limit records)
 %   iRest    BMS_iRest      (charging = iPack < -iRest selects the charge temperature limits)
+%   socTol   BMS_socMismatchTol (written as the limit of a SOC_MISMATCH record)
 %   Ts       BMS task period, s (this function is called once per task)
 %   events   BMS_event array (one per slot): this step's records, most severe first;
 %            unused slots have severity NONE
@@ -19,6 +21,10 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
 %     INFO  START_CHECK_BEGIN   INITIALIZATION entered (location = attempt number)
 %     INFO  START_CHECK_PASSED  switch commanded closed in INITIALIZATION
 %     INFO  SWITCH_CLOSED       NORMAL entered (feedback confirmed)
+%     INFO  SOC_INIT            SOC initialised (location = method 1 stored, 2 blend, 3 OCV;
+%                               value = rest time, s)
+%     MINOR SOC_MISMATCH        stored SOC disagreed with OCV (recharged / swapped while off);
+%                               location = group, value = difference, limit = socTol
 %     MINOR/MAJOR/FAULT <limit> debounced level of a quantity rose (MOL/RSL/MSL); a
 %                               record with active = false when it falls back
 %     MAJOR <limit>             MSL excursion: exceeded but too short to be a fault
@@ -35,9 +41,9 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
 
     nSlots = 6;                                   % = BMS_event slots on BMS_outBus
     persistent k prevState prevCmd prevCause prevLevel prevReady prevInv prevInvLoc count_ dropped_ attempt ...
-               tracking peakVal peakLoc
+               tracking peakVal peakLoc prevInit
     if isempty(k)
-        prevInvLoc = zeros(4, 1, "uint8");
+        prevInvLoc = zeros(4, 1, "uint8");  prevInit = uint8(0);
         tracking = false(6, 1);  peakVal = zeros(6, 1);  peakLoc = zeros(6, 1, "uint8");
         k = 0;  prevState = state;  prevCmd = false;  prevCause = BMS_eventCode.NONE;
         prevLevel = zeros(6, 1, "uint8");  prevReady = false;  prevInv = false(4, 1);
@@ -91,6 +97,15 @@ function [events, count, dropped] = logEvents(v, d, p, state, cmd, cause, latche
             inv(s) = true;                       % still reported as active
         end
     end
+
+    % --- start-up SOC initialisation ---
+    if se.socInitMethod > 0 && prevInit == 0
+        if se.socInitMismatch
+            n = n + 1; c(n) = rec(blank, t, BMS_severity.MINOR, BMS_eventCode.SOC_MISMATCH, true, se.socInitDiffIdx, uint8(0), se.socInitDiff, socTol);
+        end
+        n = n + 1; c(n) = rec(blank, t, BMS_severity.INFO, BMS_eventCode.SOC_INIT, true, se.socInitMethod, uint8(0), se.socInitRest, 0);
+    end
+    prevInit = se.socInitMethod;
 
     % --- start-up and state machine (INFO, and FAULT for ERROR causes) ---
     if k == 1 || state ~= prevState

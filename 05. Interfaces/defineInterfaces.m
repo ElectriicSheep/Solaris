@@ -63,6 +63,8 @@ codes = {
     "START_CHECK_PASSED",         3, "Start-up check passed: main switch commanded closed"
     "SWITCH_CLOSED",              4, "Main switch closed and confirmed by feedback (NORMAL)"
     "STATE_CHANGE",               5, "BMS state changed; location = new state, value = previous state"
+    "SOC_INIT",                   6, "SOC initialised at start-up; location = method (1 stored, 2 stored/OCV blend, 3 OCV), value = rest time (s)"
+    "SOC_MISMATCH",               7, "Stored SOC disagrees with OCV beyond BMS_socMismatchTol (battery recharged or swapped while off): OCV used; location = group with the largest difference, value = that difference"
     "OVER_VOLTAGE",              16, "Group voltage above a limit; location = group"
     "UNDER_VOLTAGE",             17, "Group voltage below a limit; location = group"
     "OVER_CURRENT_DCHG",         18, "Discharge current above a limit"
@@ -87,6 +89,20 @@ c.DefaultValue = "NONE";
 c.StorageType  = "uint8";
 c.Description  = "BMS event / fault code (category); see the enumeral descriptions";
 putEntry(secIfc, ifcFile, "BMS_eventCode", c);
+
+% Non-volatile record: what the BMS keeps over a power cycle. In hardware the wrapper
+% around the generated code reads it from non-volatile memory at power-up (BMS_hwIn.nvm)
+% and writes BMS_outBus.nvm back periodically and at shutdown; the generated BMS code
+% itself does no memory or file access.
+putBus(secIfc, ifcFile, "BMS_nvmRecord", "Record kept in non-volatile memory over a power cycle (contract)", [ ...
+    el("socGroup", nGroup, "1", "double",  "Group SOC when the record was saved, 0-1")
+    el("tSave",    1,      "s", "double",  "Real-time-clock time of the save")
+    el("valid",    1,      "",  "boolean", "Record intact (in hardware: checksum correct; false if never written)")]);
+
+% BMS board peripherals read by the BMS (not measurements of the battery)
+putBus(secIfc, ifcFile, "BMS_hwIn", "BMS board inputs: real-time clock and the stored record (contract)", [ ...
+    el("rtcNow",   1,      "s", "double",  "Real-time clock now (battery-backed; keeps time while the BMS is off)")
+    el("nvm",      1,      "",  "Bus: BMS_nvmRecord", "Record read from non-volatile memory at power-up")]);
 
 % Log severity (one per record)
 v = Simulink.data.dictionary.EnumTypeDefinition;
@@ -162,13 +178,14 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("latched",      1,  "",     "boolean",         "ERROR latched after BMS_nRetryMax consecutive errors (until power cycle)")
     el("events", nEventSlots, "",  "Bus: BMS_event",  "Log records produced in this BMS step, most severe first (NONE = empty slot)")
     el("eventCount",   1,  "",     "uint32",          "Log records produced since start-up")
-    el("eventDropped", 1,  "",     "uint32",          "Records lost since start-up because more than the slots occurred in one step (least severe dropped)")]);
+    el("eventDropped", 1,  "",     "uint32",          "Records lost since start-up because more than the slots occurred in one step (least severe dropped)")
+    el("nvm",          1,  "",     "Bus: BMS_nvmRecord", "Record for the wrapper to save to non-volatile memory (periodically and at shutdown)")]);
 saveChanges(ddIfc);
 
 %% 2. Platform dictionary: reference the contract, keep only platform buses
 ddPlat  = Simulink.data.dictionary.open(platFile);
 secPlat = getSection(ddPlat, "Design Data");
-for n = ["BMS_state" "BMS_eventCode" "BMS_severity" "BMS_event" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
+for n = ["BMS_state" "BMS_eventCode" "BMS_severity" "BMS_event" "BMS_nvmRecord" "BMS_hwIn" "SENS_measBus" "DIAG_bus" "BMS_outBus"]
     local = find(secPlat, "Name", n, "DataSource", platFile);
     if ~isempty(local), deleteEntry(local); end   % now supplied by bmsInterface.sldd
 end

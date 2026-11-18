@@ -22,6 +22,20 @@ p = { "LOAD_profile",       1,       "",   "Active load, selectable while runnin
       "SENS_faultDuration", 1e6,     "s",  "Fault duration (1e6 = permanent)"
       "SENS_faultRamp",     0,       "s",  "Offsets ramp in linearly over this time (0 = step)" };
 
+% BMS board peripherals seen by the BMS (BMS_HW block): real-time clock and the record
+% read from non-volatile memory at power-up. A run starts at power-up; the record is
+% what the previous power cycle saved. Default: no valid record (first power-up), so
+% the BMS initialises SOC from OCV.
+nvm = struct("socGroup", zeros(13, 1), "tSave", 0, "valid", false);
+s = Simulink.Parameter(nvm);
+s.DataType = "Bus: BMS_nvmRecord";
+s.Description = "Record in the BMS's non-volatile memory at power-up (socGroup 0-1, tSave = RTC time of the save, s; valid)";
+putEntry(sec, "HW_nvm", s);
+s = Simulink.Parameter(1e6);
+s.Unit = "s";
+s.Description = "BMS real-time clock at the start of the run (arbitrary epoch); rest time = HW_rtcStart - HW_nvm.tSave";
+putEntry(sec, "HW_rtcStart", s);
+
 % LOAD_variant (compile-time variant choice) was replaced by LOAD_profile (run-time switch)
 if exist(sec, "LOAD_variant"), deleteEntry(sec, "LOAD_variant"); end
 
@@ -55,6 +69,8 @@ set_param(cs, "SolverType", "Fixed-step", "Solver", "ode1", "FixedStep", platfor
 set_param(cs, "DefaultParameterBehavior", "Tunable", ...
               "OptimizeBlockIOStorage",   "off", ...
               "BlockReduction",           "off");
+% Structure values on bus blocks (HW_nvm, BMS_stubOut) need simplified initialisation.
+set_param(cs, "UnderspecifiedInitializationDetection", "Simplified");
 putEntry(cfgSec, "cfgHarness", cs);
 
 % BMS_stubOut: output of the STUB choice of SM_bms/BMS (RT-LAB builds, where the BMS is
