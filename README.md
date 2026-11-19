@@ -30,6 +30,7 @@ built around a **TI BQ76952** battery monitor / protector and a **Raspberry Pi 4
 | 11. Estimator | `estimator.slx` (Simulink blocks), `defineEstimator.m`, `exportPiCode.m` |
 | 12. AFE | BQ76952 emulator (C), unit test, stand-alone SITL tool |
 | 13. Pi | `solaris_host` for the Raspberry Pi (build with `make` on the Pi) |
+| 14. Adaptive ECM | Offline proof of concept: adaptive ECM (R0, R1, tau1 tables over SOC x T, capacity) from deliberately wrong starting values; `EcmConvergenceApp` shows convergence live |
 
 Set-up on a new machine: open `modularBMS.prj`, run `defineInterfaces` and `defineParameters`
 (custom-code paths are absolute), `defineEstimator`. A C compiler is needed (MinGW-w64 on Windows).
