@@ -1,0 +1,477 @@
+VERSION "bmsCan 0.1"
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: 
+
+
+BO_ 544 f_BmsState: 8 Vector__XXX
+ SG_ InsulationResistance : 63|8@0+ (200,0) [0|51000] "kOhm" Vector__XXX
+ SG_ NumberOfDeactivatedStrings : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ PhyLinked : 38|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ BmsSubstate : 37|6@0+ (1,0) [0|63] "" Vector__XXX
+ SG_ PhyAlive : 39|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ BalancingAlgorithmState : 31|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CanTimingError : 24|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ PackOvercurrentChargeError : 25|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ BmsChargingFlag : 29|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ PackOvercurrentDischargeError : 26|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ AlertFlag : 27|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ NvramCrcError : 28|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ Clamp30cError : 30|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ PrechargeVoltageError : 16|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ PrechargeCurrentError : 17|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ McuDieTemperatureError : 18|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ BmsMasterPcbOvertemperatureError : 19|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ BmsMasterPcbUndertemperatureErro : 20|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ MainFuseBlown : 21|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ InterlockState : 22|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ InsulationError : 23|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ ChargingComplete : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ GeneralWarning : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ GeneralError : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ EmergencyShutoff : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ SystemMonitoringError : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ InsulationMonitoring : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ HeaterState : 14|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CoolingState : 15|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ BmsState : 3|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ NumberOfConnectedStrings : 7|4@0+ (1,0) [0|15] "" Vector__XXX
+
+BO_ 562 f_PackLimits: 8 Vector__XXX
+ SG_ MinimumBatteryVoltage : 63|8@0+ (4,0) [0|1020] "V" Vector__XXX
+ SG_ MaximumBatteryVoltage : 55|8@0+ (4,0) [0|1020] "V" Vector__XXX
+ SG_ MaximumChargePower : 35|12@0+ (0.1,0) [0|409.5] "kW" Vector__XXX
+ SG_ MaximumDischargePower : 31|12@0+ (0.1,0) [0|409.5] "kW" Vector__XXX
+ SG_ MaximumChargeCurrent : 11|12@0+ (0.25,0) [0|1023.75] "A" Vector__XXX
+ SG_ MaximumDischargeCurrent : 7|12@0+ (0.25,0) [0|1023.75] "A" Vector__XXX
+
+BO_ 563 f_PackValuesP0: 8 Vector__XXX
+ SG_ Current : 40|17@0- (0.01,0) [-655.36|655.35] "A" Vector__XXX
+ SG_ Power : 25|17@0- (0.01,0) [-655.36|655.35] "kW" Vector__XXX
+ SG_ BusVoltage : 8|15@0- (0.1,0) [-1638.4|1638.3] "V" Vector__XXX
+ SG_ BatteryVoltage : 7|15@0- (0.1,0) [-1638.4|1638.3] "V" Vector__XXX
+
+BO_ 565 f_PackStateEstimation: 8 Vector__XXX
+ SG_ Energy : 55|16@0+ (0.1,0) [0|6553.5] "kWh" Vector__XXX
+ SG_ Soh : 47|8@0+ (0.5,0) [0|127.5] "%" Vector__XXX
+ SG_ MaximumSoe : 25|10@0+ (0.1,0) [0|102.3] "%" Vector__XXX
+ SG_ MinimumSoe : 19|10@0+ (0.1,0) [0|102.3] "%" Vector__XXX
+ SG_ MaximumSoc : 13|10@0+ (0.1,0) [0|102.3] "%" Vector__XXX
+ SG_ MinimumSoc : 7|10@0+ (0.1,0) [0|102.3] "%" Vector__XXX
+
+BO_ 592 f_CellVoltages: 8 Vector__XXX
+ SG_ CellVoltage_015 m3 : 52|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_011 m2 : 52|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_007 m1 : 52|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_003 m0 : 52|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_014 m3 : 33|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_010 m2 : 33|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_006 m1 : 33|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_002 m0 : 33|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_013 m3 : 30|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_009 m2 : 30|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_005 m1 : 30|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_001 m0 : 30|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_012 m3 : 11|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_008 m2 : 11|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_004 m1 : 11|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_000 m0 : 11|13@0+ (1,0) [0|8191] "mV" Vector__XXX
+ SG_ CellVoltage_012_invalidFlag m3 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_008_invalidFlag m2 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_004_invalidFlag m1 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_000_invalidFlag m0 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_013_invalidFlag m3 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_009_invalidFlag m2 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_005_invalidFlag m1 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_001_invalidFlag m0 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_014_invalidFlag m3 : 14|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_010_invalidFlag m2 : 14|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_006_invalidFlag m1 : 14|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_002_invalidFlag m0 : 14|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_015_invalidFlag m3 : 15|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_011_invalidFlag m2 : 15|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_007_invalidFlag m1 : 15|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellVoltage_003_invalidFlag m0 : 15|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ f_CellVoltages_Mux M : 7|8@0+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 608 f_CellTemperatures: 8 Vector__XXX
+ SG_ CellTemperature_029 m4 : 63|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_023 m3 : 63|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_017 m2 : 63|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_011 m1 : 63|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_005 m0 : 63|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_028 m4 : 55|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_022 m3 : 55|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_016 m2 : 55|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_010 m1 : 55|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_004 m0 : 55|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_027 m4 : 47|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_021 m3 : 47|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_015 m2 : 47|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_009 m1 : 47|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_003 m0 : 47|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_026 m4 : 39|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_020 m3 : 39|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_014 m2 : 39|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_008 m1 : 39|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_002 m0 : 39|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_025 m4 : 31|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_019 m3 : 31|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_013 m2 : 31|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_007 m1 : 31|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_001 m0 : 31|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_024 m4 : 23|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_018 m3 : 23|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_012 m2 : 23|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_006 m1 : 23|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_000 m0 : 23|8@0- (1,0) [-128|127] "degC" Vector__XXX
+ SG_ CellTemperature_024_invalidFlag m4 : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_018_invalidFlag m3 : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_012_invalidFlag m2 : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_006_invalidFlag m1 : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_000_invalidFlag m0 : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_025_invalidFlag m4 : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_019_invalidFlag m3 : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_013_invalidFlag m2 : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_007_invalidFlag m1 : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_001_invalidFlag m0 : 9|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_026_invalidFlag m4 : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_020_invalidFlag m3 : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_014_invalidFlag m2 : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_008_invalidFlag m1 : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_002_invalidFlag m0 : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_027_invalidFlag m4 : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_021_invalidFlag m3 : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_015_invalidFlag m2 : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_009_invalidFlag m1 : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_003_invalidFlag m0 : 11|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_028_invalidFlag m4 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_022_invalidFlag m3 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_016_invalidFlag m2 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_010_invalidFlag m1 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_004_invalidFlag m0 : 12|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_029_invalidFlag m4 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_023_invalidFlag m3 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_017_invalidFlag m2 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_011_invalidFlag m1 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CellTemperature_005_invalidFlag m0 : 13|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ f_CellTemperatures_Mux M : 7|8@0+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 896 ADV_Status: 8 Vector__XXX
+ SG_ FramesMissed : 40|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ BmsStateEcho : 32|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ InputAge : 20|12@1+ (1,0) [0|4095] "ms" Vector__XXX
+ SG_ EstimatorSet : 16|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ Initialising : 14|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ InputsStale : 13|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SoeValid : 12|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SopValid : 11|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SohValid : 10|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SocValid : 9|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Valid : 8|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Heartbeat : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 897 ADV_PackEstimates: 8 Vector__XXX
+ SG_ SohResistance : 48|10@1+ (0.1,0) [0.0|102.30000000000001] "%" Vector__XXX
+ SG_ SohCapacity : 38|10@1+ (0.1,0) [0.0|102.30000000000001] "%" Vector__XXX
+ SG_ SocSigma : 28|10@1+ (0.01,0) [0.0|10.23] "%" Vector__XXX
+ SG_ SocMax : 14|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ SocMin : 0|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+
+BO_ 898 ADV_PowerEnergy: 8 Vector__XXX
+ SG_ SoePercent : 48|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ SoeEnergy : 32|16@1+ (1,0) [0|65535] "Wh" Vector__XXX
+ SG_ SopCharge : 16|16@1+ (1,0) [0|65535] "W" Vector__XXX
+ SG_ SopDischarge : 0|16@1+ (1,0) [0|65535] "W" Vector__XXX
+
+BO_ 899 ADV_CurrentLimits: 8 Vector__XXX
+ SG_ Horizon : 24|8@1+ (1,0) [0|255] "s" Vector__XXX
+ SG_ IChargeMax : 12|12@1+ (0.1,0) [0.0|409.5] "A" Vector__XXX
+ SG_ IDischargeMax : 0|12@1+ (0.1,0) [0.0|409.5] "A" Vector__XXX
+
+BO_ 900 ADV_GroupSoc: 8 Vector__XXX
+ SG_ GroupSoc_015 m3 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_011 m2 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_007 m1 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_003 m0 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_014 m3 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_010 m2 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_006 m1 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_002 m0 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_013 m3 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_009 m2 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_005 m1 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_001 m0 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_012 m3 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_008 m2 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_004 m1 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_000 m0 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ ADV_GroupSoc_Mux M : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+
+
+
+CM_ BO_ 544 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator";
+CM_ SG_ 544 NumberOfDeactivatedStrings "Shows the number of not connected strings, i.e., the strings in which the contactors are open";
+CM_ SG_ 544 PhyLinked "Indicates that the phy has a network connection";
+CM_ SG_ 544 PhyAlive "Indicates that the phy hardware is reachable";
+CM_ SG_ 544 BalancingAlgorithmState "Indicates if the selected balancing algorithm allows balancing. This indicates not if a cell is actually balanced or not. This is indicated in IsBalancingActive flag in f_StringState message";
+CM_ SG_ 544 CanTimingError "Indicates whether there is CAN timing error or not";
+CM_ SG_ 544 PackOvercurrentChargeError "Indicates whether a too high pack current (i.e., overcurrent) has been detected during charing or not";
+CM_ SG_ 544 BmsChargingFlag "Indicates that the bms is charging";
+CM_ SG_ 544 PackOvercurrentDischargeError "Indicates whether a too high pack current (i.e., overcurrent) has been detected during discharging or not";
+CM_ SG_ 544 AlertFlag "Indicates whether any alter flag is set or not";
+CM_ SG_ 544 NvramCrcError "Indicates whether a CRC error has been detected in the NVRAM or not";
+CM_ SG_ 544 Clamp30cError "Indicates a possible error with Clamp 30C supply";
+CM_ SG_ 544 PrechargeVoltageError "Indicates whether precharging was successful or needed to aborted because of a too high voltage difference";
+CM_ SG_ 544 PrechargeCurrentError "Indicates whether precharging was successful or needed to aborted because of a current limit violation";
+CM_ SG_ 544 McuDieTemperatureError "Indicates whether there is an MCU temperature error or not";
+CM_ SG_ 544 BmsMasterPcbOvertemperatureError "Indicates whether a too high PCB temperature (i.e., overtemperature) of the BMS Master has been detected or not";
+CM_ SG_ 544 BmsMasterPcbUndertemperatureErro "Indicates whether a too low PCB temperature (i.e., undertemperature) of the BMS Master has been detected or not";
+CM_ SG_ 544 MainFuseBlown "Indicates whether there is the main fuse is blown or not";
+CM_ SG_ 544 InterlockState "Indicates whether the is closed or not";
+CM_ SG_ 544 InsulationError "Indicates whether an insulation error has been detected or not";
+CM_ SG_ 544 ChargingComplete "Indicates whether charging is completed or not";
+CM_ SG_ 544 GeneralWarning "Indicates whether any warning is present on the BMS or not";
+CM_ SG_ 544 GeneralError "Indicates whether any error is present on the BMS or not";
+CM_ SG_ 544 EmergencyShutoff "Indicates that the BMS is preparing to open the contactors soon due to detected error";
+CM_ SG_ 544 SystemMonitoringError "Indicates whether a task has violated its timing requirements";
+CM_ SG_ 544 InsulationMonitoring "Indicates whether the insulation monitoring device is active or not";
+CM_ SG_ 544 HeaterState "Indicates whether the heater is active or not";
+CM_ SG_ 544 CoolingState "Indicates whether cooling is active or not";
+CM_ SG_ 544 BmsState "Shows the internal state of the BMS state machine";
+CM_ SG_ 544 NumberOfConnectedStrings "Shows the number of connected strings, i.e., the strings in which the contactors are closed";
+CM_ BO_ 562 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator";
+CM_ SG_ 562 MinimumBatteryVoltage "Minimum allowed battery pack voltage (defined by the cell limits or application specification)";
+CM_ SG_ 562 MaximumBatteryVoltage "Maximum allowed battery pack voltage (defined by either cell limits or restricted by the charging algorithm)";
+CM_ SG_ 562 MaximumChargePower "Maximum battery pack charge power";
+CM_ SG_ 562 MaximumDischargePower "Maximum battery pack discharge power";
+CM_ SG_ 562 MaximumChargeCurrent "Maximum battery pack charge current";
+CM_ SG_ 562 MaximumDischargeCurrent "Maximum battery pack discharge current";
+CM_ BO_ 563 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator";
+CM_ SG_ 563 Current "Battery pack current";
+CM_ SG_ 563 Power "Battery power";
+CM_ SG_ 563 BusVoltage "Battery voltage between negative pole and after main positive contactor TODO";
+CM_ SG_ 563 BatteryVoltage "Battery voltage between negative and positive pole of the battery";
+CM_ BO_ 565 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator";
+CM_ SG_ 565 Energy "Energy left in Wh that is currently connected to HV bus";
+CM_ SG_ 565 MaximumSoe "Maximum SOE currently connected to HV bus (100% if all strings connected and all strings at 100%)";
+CM_ SG_ 565 MinimumSoe "Minimum SOE currently connected to HV bus (100% if all strings connected and all strings at 100%)";
+CM_ SG_ 565 MaximumSoc "Maximum SOC currently connected to HV bus (100% if all strings connected and all strings at 100%)";
+CM_ SG_ 565 MinimumSoc "Minimum SOC currently connected to HV bus (100% if all strings connected and all strings at 100%)";
+CM_ BO_ 592 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator; mux 0..3";
+CM_ SG_ 592 CellVoltage_015 "Voltage of cell 15";
+CM_ SG_ 592 CellVoltage_011 "Voltage of cell 11";
+CM_ SG_ 592 CellVoltage_007 "Voltage of cell 7";
+CM_ SG_ 592 CellVoltage_003 "Voltage of cell 3";
+CM_ SG_ 592 CellVoltage_014 "Voltage of cell 14";
+CM_ SG_ 592 CellVoltage_010 "Voltage of cell 10";
+CM_ SG_ 592 CellVoltage_006 "Voltage of cell 6";
+CM_ SG_ 592 CellVoltage_002 "Voltage of cell 2";
+CM_ SG_ 592 CellVoltage_013 "Voltage of cell 13";
+CM_ SG_ 592 CellVoltage_009 "Voltage of cell 9";
+CM_ SG_ 592 CellVoltage_005 "Voltage of cell 5";
+CM_ SG_ 592 CellVoltage_001 "Voltage of cell 1";
+CM_ SG_ 592 CellVoltage_012 "Voltage of cell 12";
+CM_ SG_ 592 CellVoltage_008 "Voltage of cell 8";
+CM_ SG_ 592 CellVoltage_004 "Voltage of cell 4";
+CM_ SG_ 592 CellVoltage_000 "Voltage of cell 0";
+CM_ BO_ 608 "foxBMS 2 (CC-BY-4.0); sent every 100 ms by the BMS emulator; mux 0..4";
+CM_ SG_ 608 CellTemperature_029 "Temperature of cell 29";
+CM_ SG_ 608 CellTemperature_023 "Temperature of cell 23";
+CM_ SG_ 608 CellTemperature_017 "Temperature of cell 17";
+CM_ SG_ 608 CellTemperature_011 "Temperature of cell 11";
+CM_ SG_ 608 CellTemperature_005 "Temperature of cell 5";
+CM_ SG_ 608 CellTemperature_028 "Temperature of cell 28";
+CM_ SG_ 608 CellTemperature_022 "Temperature of cell 22";
+CM_ SG_ 608 CellTemperature_016 "Temperature of cell 16";
+CM_ SG_ 608 CellTemperature_010 "Temperature of cell 10";
+CM_ SG_ 608 CellTemperature_004 "Temperature of cell 4";
+CM_ SG_ 608 CellTemperature_027 "Temperature of cell 27";
+CM_ SG_ 608 CellTemperature_021 "Temperature of cell 21";
+CM_ SG_ 608 CellTemperature_015 "Temperature of cell 15";
+CM_ SG_ 608 CellTemperature_009 "Temperature of cell 9";
+CM_ SG_ 608 CellTemperature_003 "Temperature of cell 3";
+CM_ SG_ 608 CellTemperature_026 "Temperature of cell 26";
+CM_ SG_ 608 CellTemperature_020 "Temperature of cell 20";
+CM_ SG_ 608 CellTemperature_014 "Temperature of cell 14";
+CM_ SG_ 608 CellTemperature_008 "Temperature of cell 8";
+CM_ SG_ 608 CellTemperature_002 "Temperature of cell 2";
+CM_ SG_ 608 CellTemperature_025 "Temperature of cell 25";
+CM_ SG_ 608 CellTemperature_019 "Temperature of cell 19";
+CM_ SG_ 608 CellTemperature_013 "Temperature of cell 13";
+CM_ SG_ 608 CellTemperature_007 "Temperature of cell 7";
+CM_ SG_ 608 CellTemperature_001 "Temperature of cell 1";
+CM_ SG_ 608 CellTemperature_024 "Temperature of cell 24";
+CM_ SG_ 608 CellTemperature_018 "Temperature of cell 18";
+CM_ SG_ 608 CellTemperature_012 "Temperature of cell 12";
+CM_ SG_ 608 CellTemperature_006 "Temperature of cell 6";
+CM_ SG_ 608 CellTemperature_000 "Temperature of cell 0";
+CM_ BO_ 896 "Advisory layer status (this project)";
+CM_ SG_ 896 FramesMissed "BMS measurement sets missed since start (wraps)";
+CM_ SG_ 896 BmsStateEcho "foxBMS BmsState last received";
+CM_ SG_ 896 InputAge "Age of the newest BMS measurement set used";
+CM_ SG_ 896 EstimatorSet "Which estimator variant is running (0 = coulomb counting)";
+CM_ SG_ 896 Initialising "";
+CM_ SG_ 896 InputsStale "1 = BMS frames missing for longer than ADV_tStale";
+CM_ SG_ 896 SoeValid "";
+CM_ SG_ 896 SopValid "";
+CM_ SG_ 896 SohValid "";
+CM_ SG_ 896 SocValid "";
+CM_ SG_ 896 Valid "1 = estimates usable (initialised, inputs fresh)";
+CM_ SG_ 896 Heartbeat "Increments every frame (wraps); stale if unchanged > 1 s";
+CM_ BO_ 897 "Advisory SOC / SOH (this project)";
+CM_ SG_ 897 SohResistance "Resistance SOH Rnew/R, worst group (100 = new). Raw all-ones = not available.";
+CM_ SG_ 897 SohCapacity "Capacity SOH, worst group (100 = new). Raw all-ones = not available.";
+CM_ SG_ 897 SocSigma "1-sigma SOC uncertainty. Raw all-ones = not available.";
+CM_ SG_ 897 SocMax "Highest group SOC. Raw all-ones = not available.";
+CM_ SG_ 897 SocMin "Lowest group SOC. Raw all-ones = not available.";
+CM_ BO_ 898 "Advisory SOP / SOE (this project)";
+CM_ SG_ 898 SoePercent "State of energy. Raw all-ones = not available.";
+CM_ SG_ 898 SoeEnergy "Remaining energy. Raw all-ones = not available.";
+CM_ SG_ 898 SopCharge "Charge power available over the horizon. Raw all-ones = not available.";
+CM_ SG_ 898 SopDischarge "Discharge power available over the horizon. Raw all-ones = not available.";
+CM_ BO_ 899 "Advisory current limits (this project)";
+CM_ SG_ 899 Horizon "SOP prediction horizon";
+CM_ SG_ 899 IChargeMax "Charge current available over the horizon. Raw all-ones = not available.";
+CM_ SG_ 899 IDischargeMax "Discharge current available over the horizon. Raw all-ones = not available.";
+CM_ BO_ 900 "Advisory SOC per group, 4 per frame, mux 0..3 (this project)";
+CM_ SG_ 900 GroupSoc_015 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_011 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_007 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_003 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_014 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_010 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_006 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_002 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_013 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_009 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_005 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_001 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_012 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_008 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_004 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_000 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 ADV_GroupSoc_Mux "";
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_DEF_DEF_  "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 544 100;
+BA_ "GenMsgCycleTime" BO_ 562 100;
+BA_ "GenMsgCycleTime" BO_ 563 100;
+BA_ "GenMsgCycleTime" BO_ 565 100;
+BA_ "GenMsgCycleTime" BO_ 592 100;
+BA_ "GenMsgCycleTime" BO_ 608 100;
+BA_ "GenMsgCycleTime" BO_ 896 100;
+BA_ "GenMsgCycleTime" BO_ 897 100;
+BA_ "GenMsgCycleTime" BO_ 898 100;
+BA_ "GenMsgCycleTime" BO_ 899 100;
+BA_ "GenMsgCycleTime" BO_ 900 100;
+VAL_ 544 BmsSubstate 0 "ENTRY" 1 "CHECK_ERROR_FLAGS_INTERLOCK" 2 "INTERLOCK_CHECKED" 3 "CHECK_STATE_REQUESTS" 4 "CHECK_BALANCING_REQUESTS" 5 "CHECK_ERROR_FLAGS" 6 "CHECK_CONTACTOR_NORMAL_STATE" 7 "CHECK_CONTACTOR_CHARGE_STATE" 8 "PRECHARGE_CLOSE_MINUS" 9 "PRECHARGE_CLOSE_PRECHARGE" 10 "PRECHARGE_CHECK_VOLTAGES" 11 "PRECHARGE_OPEN_PRECHARGE" 12 "PRECHARGE_CHECK_OPEN_PRECHARGE" 13 "OPEN_FIRST_CONTACTOR" 14 "OPEN_SECOND_CONTACTOR_MINUS" 15 "OPEN_SECOND_CONTACTOR_PLUS" 16 "CHECK_CLOSE_SECOND_STRING_CONTACOTR_PRECHARGE_STATE" 17 "CHECK_ERROR_FLAGS_PRECHARGE" 18 "CHECK_ERROR_FLAGS_PRECHARGE_FIRST_STRING" 19 "PRECHARGE_CLOSE_NEXT_STRING" 20 "CLOSE_SECOND_CONTACOR_PLUS" 21 "CHECK_STRING_CLOSED" 22 "CHECK_ERROR_FLAGS_PRECHARGE_CLOSING_STRINGS" 23 "CHECK_ERROR_FLAGS_CLOSING_PRECHARGE" 24 "NORMAL_CLOSE_NEXT_STRING" 25 "NORMAL_CLOSE_SECOND_STRING_CONTACTOR" 26 "OPEN_ALL_PRECHARGE_CONTACTORS" 27 "CHECK_ALL_PRECHARGE_CONTACTORS_OPEN" 28 "OPEN_STRINGS_ENTRY" 29 "OPEN_FIRST_STRING_CONTACTOR" 30 "OPEN_SECOND_STRING_CONTACTOR" 31 "CHECK_SECOND_STRING_CONTACTOR" 32 "OPEN_STRINGS_EXIT" ;
+VAL_ 544 BalancingAlgorithmState 0 "BALANCING_NOT_ALLOWED" 1 "BALANCING_ALLOWED" ;
+VAL_ 544 CanTimingError 0 "No Error" 1 "Error" ;
+VAL_ 544 PackOvercurrentChargeError 0 "No Error" 1 "Error" ;
+VAL_ 544 BmsChargingFlag 0 "No" 1 "Yes" ;
+VAL_ 544 PackOvercurrentDischargeError 0 "No Error" 1 "Error" ;
+VAL_ 544 AlertFlag 0 "No Alert" 1 "Alert" ;
+VAL_ 544 NvramCrcError 0 "No Error" 1 "Error" ;
+VAL_ 544 Clamp30cError 0 "No Error" 1 "Error" ;
+VAL_ 544 PrechargeVoltageError 0 "No Error" 1 "Error" ;
+VAL_ 544 PrechargeCurrentError 0 "No Error" 1 "Error" ;
+VAL_ 544 McuDieTemperatureError 0 "No Error" 1 "Error" ;
+VAL_ 544 BmsMasterPcbOvertemperatureError 0 "No Error" 1 "Error" ;
+VAL_ 544 BmsMasterPcbUndertemperatureErro 0 "No Error" 1 "Error" ;
+VAL_ 544 MainFuseBlown 0 "Fuse okay" 1 "Fuse blown" ;
+VAL_ 544 InterlockState 0 "Closed" 1 "Open" ;
+VAL_ 544 InsulationError 0 "No Error" 1 "Error" ;
+VAL_ 544 ChargingComplete 0 "Incomplete" 1 "Complete" ;
+VAL_ 544 GeneralWarning 0 "No Warning" 1 "Warning" ;
+VAL_ 544 GeneralError 0 "No Error" 1 "Error" ;
+VAL_ 544 EmergencyShutoff 0 "Inactive" 1 "Active" ;
+VAL_ 544 SystemMonitoringError 0 "No Error" 1 "Error" ;
+VAL_ 544 InsulationMonitoring 0 "Inactive" 1 "Active" ;
+VAL_ 544 HeaterState 0 "Inactive" 1 "Active" ;
+VAL_ 544 CoolingState 0 "Inactive" 1 "Active" ;
+VAL_ 544 BmsState 0 "UNINITIALIZED" 1 "INITIALIZATION" 2 "INITIALIZED" 3 "IDLE" 4 "OPEN_CONTACTORS" 5 "STANDBY" 6 "PRECHARGE" 7 "NORMAL" 8 "DISCHARGE" 9 "CHARGE" 10 "ERROR" 11 "UNDEFINED" ;
+VAL_ 592 CellVoltage_012_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_008_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_004_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_000_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_013_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_009_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_005_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_001_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_014_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_010_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_006_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_002_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_015_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_011_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_007_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 CellVoltage_003_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 592 f_CellVoltages_Mux 0 "CellVoltages_000_003" 1 "CellVoltages_004_007" 2 "CellVoltages_008_011" 3 "CellVoltages_012_015" 4 "CellVoltages_016_019" 5 "CellVoltages_020_023" 6 "CellVoltages_024_027" 7 "CellVoltages_028_031" 8 "CellVoltages_032_035" 9 "CellVoltages_036_039" 10 "CellVoltages_040_043" 11 "CellVoltages_044_047" 12 "CellVoltages_048_051" 13 "CellVoltages_052_055" 14 "CellVoltages_056_059" 15 "CellVoltages_060_063" 16 "CellVoltages_064_067" 17 "CellVoltages_068_071" 18 "CellVoltages_072_075" 19 "CellVoltages_076_079" 20 "CellVoltages_080_083" 21 "CellVoltages_084_087" 22 "CellVoltages_088_091" 23 "CellVoltages_092_095" 24 "CellVoltages_096_099" 25 "CellVoltages_100_103" 26 "CellVoltages_104_107" 27 "CellVoltages_108_111" 28 "CellVoltages_112_115" 29 "CellVoltages_116_119" 30 "CellVoltages_120_123" 31 "CellVoltages_124_127" 32 "CellVoltages_128_131" 33 "CellVoltages_132_135" 34 "CellVoltages_136_139" 35 "CellVoltages_140_143" 36 "CellVoltages_144_147" 37 "CellVoltages_148_151" 38 "CellVoltages_152_155" 39 "CellVoltages_156_159" 40 "CellVoltages_160_163" 41 "CellVoltages_164_167" 42 "CellVoltages_168_171" 43 "CellVoltages_172_175" 44 "CellVoltages_176_179" 45 "CellVoltages_180_183" 46 "CellVoltages_184_187" 47 "CellVoltages_188_191" 48 "CellVoltages_192_195" 49 "CellVoltages_196_199" 50 "CellVoltages_200_203" 51 "CellVoltages_204_207" 52 "CellVoltages_208_211" 53 "CellVoltages_212_215" ;
+VAL_ 608 CellTemperature_024_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_018_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_012_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_006_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_000_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_025_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_019_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_013_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_007_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_001_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_026_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_020_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_014_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_008_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_002_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_027_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_021_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_015_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_009_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_003_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_028_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_022_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_016_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_010_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_004_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_029_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_023_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_017_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_011_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 CellTemperature_005_invalidFlag 0 "Invalid" 1 "Valid" ;
+VAL_ 608 f_CellTemperatures_Mux 0 "CellTemperatures_000_005" 1 "CellTemperatures_006_011" 2 "CellTemperatures_012_017" 3 "CellTemperatures_018_023" 4 "CellTemperatures_024_029" 5 "CellTemperatures_030_035" 6 "CellTemperatures_036_041" 7 "CellTemperatures_042_047" 8 "CellTemperatures_048_053" 9 "CellTemperatures_054_059" 10 "CellTemperatures_060_065" 11 "CellTemperatures_066_071" 12 "CellTemperatures_072_077" 13 "CellTemperatures_078_083" 14 "CellTemperatures_084_089" 15 "CellTemperatures_090_095" 16 "CellTemperatures_096_101" 17 "CellTemperatures_102_107" 18 "CellTemperatures_108_113" 19 "CellTemperatures_114_119" 20 "CellTemperatures_120_125" 21 "CellTemperatures_126_131" 22 "CellTemperatures_132_137" 23 "CellTemperatures_138_143" 24 "CellTemperatures_144_149" 25 "CellTemperatures_150_155" 26 "CellTemperatures_156_161" 27 "CellTemperatures_162_167" 28 "CellTemperatures_168_173" 29 "CellTemperatures_174_179" ;
+
+
+

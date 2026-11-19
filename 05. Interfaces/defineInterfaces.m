@@ -169,6 +169,45 @@ putBus(secIfc, ifcFile, "DIAG_bus", "Debounced fault flags from DIAG (contract)"
     el("excursion",     6, "", "boolean", "MSL exceeded but cleared before BMS_tDiagSet (one-step pulse), same order as level")]);
 
 % BMS_outBus
+% Advisory estimator outputs, decoded from the ADV_* CAN messages (10. CAN/bmsCan.dbc).
+% NaN = not available (raw all-ones on CAN: that estimate is not produced yet).
+putBus(secIfc, ifcFile, "ADV_bus", "Advisory estimator outputs, decoded from CAN (contract)", [ ...
+    el("heartbeat",    1, "",   "double",  "ADV_Status heartbeat counter (0-255, wraps)")
+    el("fresh",        1, "",   "boolean", "Heartbeat changed within ADV_tStale (link and estimator alive)")
+    el("valid",        1, "",   "boolean", "Estimator reports its outputs usable")
+    el("socValid",     1, "",   "boolean", "SOC estimate usable")
+    el("sohValid",     1, "",   "boolean", "SOH estimate usable")
+    el("sopValid",     1, "",   "boolean", "SOP estimate usable")
+    el("soeValid",     1, "",   "boolean", "SOE estimate usable")
+    el("inputsStale",  1, "",   "boolean", "Estimator is missing BMS frames")
+    el("estimatorSet", 1, "",   "double",  "Estimator variant running on the Pi (0 = coulomb counting)")
+    el("inputAge",     1, "s",  "double",  "Age of the BMS measurement set the estimator used")
+    el("framesMissed", 1, "",   "double",  "BMS measurement sets the estimator missed (wraps at 65536)")
+    el("rxAge",        1, "s",  "double",  "Time since the last advisory datagram arrived")
+    el("socMin",       1, "1",  "double",  "Lowest group SOC, 0-1")
+    el("socMax",       1, "1",  "double",  "Highest group SOC, 0-1")
+    el("socSigma",     1, "1",  "double",  "1-sigma SOC uncertainty, 0-1")
+    el("sohQ",         1, "1",  "double",  "Capacity SOH, worst group (1 = new)")
+    el("sohR",         1, "1",  "double",  "Resistance SOH Rnew/R, worst group (1 = new)")
+    el("sopDchg",      1, "W",  "double",  "Discharge power available over the horizon")
+    el("sopChg",       1, "W",  "double",  "Charge power available over the horizon")
+    el("soeWh",        1, "Wh", "double",  "Remaining energy")
+    el("soe",          1, "1",  "double",  "State of energy, 0-1")
+    el("iDchgMax",     1, "A",  "double",  "Discharge current available over the horizon")
+    el("iChgMax",      1, "A",  "double",  "Charge current available over the horizon")
+    el("horizon",      1, "s",  "double",  "SOP prediction horizon")
+    el("socGroup", nGroup, "1", "double",  "SOC per group, 0-1")]);
+
+% Measurements as the BMS broadcasts them (CAN, 10. CAN/bmsCan.dbc): calibrated values with
+% the BMS's own per-channel plausibility. Read by the advisory estimators, not by protection.
+putBus(secIfc, ifcFile, "BMS_measOut", "Measurements broadcast by the BMS (contract)", [ ...
+    el("vGroup",  nGroup, "V", "double",  "Group voltages, calibrated")
+    el("vValid",  nGroup, "",  "boolean", "Group voltage channel plausible")
+    el("iPack",   1,      "A", "double",  "Pack current, calibrated, discharge positive")
+    el("iValid",  1,      "",  "boolean", "Current channel plausible")
+    el("tSensor", nTemp,  "K", "double",  "Temperatures, calibrated")
+    el("tValid",  nTemp,  "",  "boolean", "Temperature channel plausible")]);
+
 putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("socGroup", nGroup, "1",    "double",          "Estimated group SOC, 0-1")
     el("sohR",     nGroup, "1",    "double",          "Resistance state of health per group (1 = new)")
@@ -186,7 +225,8 @@ putBus(secIfc, ifcFile, "BMS_outBus", "BMS outputs (contract)", [ ...
     el("events", nEventSlots, "",  "Bus: BMS_event",  "Log records produced in this BMS step, most severe first (NONE = empty slot)")
     el("eventCount",   1,  "",     "uint32",          "Log records produced since start-up")
     el("eventDropped", 1,  "",     "uint32",          "Records lost since start-up because more than the slots occurred in one step (least severe dropped)")
-    el("nvm",          1,  "",     "Bus: BMS_nvmRecord", "Record for the wrapper to save to non-volatile memory (periodically and at shutdown)")]);
+    el("nvm",          1,  "",     "Bus: BMS_nvmRecord", "Record for the wrapper to save to non-volatile memory (periodically and at shutdown)")
+    el("meas",         1,  "",     "Bus: BMS_measOut", "Measurements with plausibility, as broadcast on CAN")]);
 saveChanges(ddIfc);
 
 %% 2. Platform dictionary: reference the contract, keep only platform buses
@@ -210,6 +250,12 @@ putBus(secPlat, platFile, "PLANT_truthBus", "True plant values, PLANT -> SENS an
     el("tCell",    nCell,  "K",    "double", "True cell temperatures, modules 1-7 in order")
     el("socCell",  nCell,  "1",    "double", "True cell SOC, 0-1")
     el("contactorClosed", 1, "",   "boolean", "True main contactor state: true = closed")]);
+putBus(secPlat, platFile, "ARB_bus", "Arbitration (vehicle-controller stand-in): which SOC planning uses", [ ...
+    el("useAdv",          1, "",  "boolean", "Advisory SOC used: fresh, valid, SOC valid, and within ARB_socTol of the BMS's")
+    el("socMismatch",     1, "",  "boolean", "Advisory and BMS SOC differ by more than ARB_socTol (warning)")
+    el("socPlan",         1, "1", "double",  "SOC for planning: advisory if useAdv, else the BMS's pack SOC")
+    el("socConservative", 1, "1", "double",  "Lower of the usable SOCs, for irreversible decisions")
+    el("socBms",          1, "1", "double",  "The BMS's own pack SOC (lowest group)")]);
 saveChanges(ddPlat);
 
 fprintf("Contract in %s:\n", ifcFile);      disp(string({find(secIfc, "DataSource", ifcFile).Name})');

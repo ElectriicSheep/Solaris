@@ -20,7 +20,11 @@ p = { "LOAD_profile",       1,       "",   "Active load, selectable while runnin
       "SENS_faultValue",    0,       "",   "Offset magnitude for fault types 1 (V) and 2 (K)"
       "SENS_faultStart",    0,       "s",  "Fault start time"
       "SENS_faultDuration", 1e6,     "s",  "Fault duration (1e6 = permanent)"
-      "SENS_faultRamp",     0,       "s",  "Offsets ramp in linearly over this time (0 = step)" };
+      "SENS_faultRamp",     0,       "s",  "Offsets ramp in linearly over this time (0 = step)"
+      "CAN_link",           0,       "",   "CAN link to the advisory estimators (variant, compile-time): 0 = none (advisory outputs not available), 1 = UDP to the Pi (CAN frames tunnelled, 10. CAN)"
+      "CAN_Ts",             0.1,     "s",  "CAN transmit / receive period (= BMS_Ts: one measurement set per BMS step)"
+      "ADV_tStale",         1,       "s",  "Advisory outputs stale if the ADV_Status heartbeat has not changed for this long"
+      "ARB_socTol",         0.10,    "1",  "Advisory SOC rejected (and a mismatch flagged) if it differs from the BMS's by more than this" };
 
 % BMS board peripherals seen by the BMS (BMS_HW block): real-time clock and the record
 % read from non-volatile memory at power-up. A run starts at power-up; the record is
@@ -89,6 +93,14 @@ putEntry(cfgSec, "cfgHarness", cs);
 stub = Simulink.Bus.createMATLABStruct("BMS_outBus", [], [1 1], dd);
 stub.contactorCmd = true;
 putEntry(sec, "BMS_stubOut", stub);
+
+% BMS limits sent in f_PackLimits. PLACEHOLDERS: the BMS has no limit calculation yet
+% (charge/discharge limits are last on the list); RSL values of BMS_soaLim, pack level.
+lim = struct("iDchg", 50, "iChg", 12.6, "pDchg", 50*13*3.6, "pChg", 12.6*13*4.2, "vMax", 13*4.23, "vMin", 13*2.80);
+s = Simulink.Parameter(lim);
+s.Description = "Pack limits broadcast by the BMS emulator (f_PackLimits): iDchg iChg (A), pDchg pChg (W), vMax vMin (V); placeholders = RSL values";
+putEntry(sec, "CAN_bmsLim", s);
+
 
 saveChanges(dd);
 fprintf("Parameters and cfgHarness written to bmsPlatform.sldd\n");
