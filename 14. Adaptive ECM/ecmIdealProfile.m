@@ -6,11 +6,12 @@ function [i, info] = ecmIdealProfile(Ts, opts)
 %
 % Same average current and same peak as CYCLE A, so the comparison is at equal charge
 % throughput and equal peak stress. Two parts on top of the average:
-%   multisine   30 log-spaced harmonics of 1/T between 1/T and 0.2 Hz with Schroeder
+%   multisine   40 log-spaced harmonics of 1/T between 1/T and 2 Hz with Schroeder
 %               phases (low crest factor): excites the RC branch (tau1 30-80 s,
-%               corner frequencies 2-5 mHz) evenly across its band
-%   APRBS       random levels held for 2-60 s (log-uniform): sharp steps for R0 and
-%               step responses of the RC branch
+%               corner frequencies 2-5 mHz) and the fast band evenly
+%   APRBS       random levels held for 0.3-60 s (log-uniform): many sharp steps for R0
+%               (CYCLE A changes by more than 1 A in ~13 % of 0.1 s steps) and step
+%               responses of the RC branch
 % Short negative excursions (charge pulses, to -3 A) are allowed: current of both signs
 % separates R0 and R1 from the OCV better. The result is clipped to [-3, peak] and the
 % average is restored afterwards.
@@ -28,14 +29,14 @@ s = RandStream("mt19937ar", "Seed", opts.Seed);
 N = round(opts.T / Ts);  t = (0:N-1)' * Ts;
 % multisine
 f0 = 1 / opts.T;
-k = unique(round(logspace(0, log10(0.2 / f0), 30)));
+k = unique(round(logspace(0, log10(2 / f0), 40)));
 ph = -pi * k .* (k - 1) / numel(k);                 % Schroeder phases
 ms = sum(cos(2*pi*f0*t*k + ph), 2);
 ms = ms / std(ms);
 % APRBS
 ap = zeros(N, 1); n = 1;
 while n <= N
-    hold = round(exp(log(2) + (log(60) - log(2)) * rand(s)) / Ts);
+    hold = max(1, round(exp(log(0.3) + (log(60) - log(0.3)) * rand(s)) / Ts));
     ap(n:min(n+hold-1, N)) = randn(s);
     n = n + hold;
 end

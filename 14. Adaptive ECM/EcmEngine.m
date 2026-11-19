@@ -35,7 +35,8 @@ classdef EcmEngine < handle
             z13 = zeros(0, 13);
             obj.H = struct("t", zeros(0, 1), "err", zeros(0, 13, 4), "z", z13, "zh", z13, "i", zeros(0, 1), ...
                 "v", z13, "T", z13, "Wh", z13, "mode", zeros(0, 1), "cycle", zeros(0, 1), "efc", z13, ...
-                "sohq", z13, "sohr", z13, "Q", z13, "Qe", z13, "tabT", zeros(0, 1), "tabErr", zeros(0, 13, 3));
+                "sohq", z13, "sohr", z13, "Q", z13, "Qe", z13, "tabT", zeros(0, 1), "tabErr", zeros(0, 13, 3), ...
+                "tabBias", zeros(0, 13, 3));
         end
 
         function start(obj, opts)
@@ -92,16 +93,16 @@ classdef EcmEngine < handle
             H.i = [H.i; L.i(k)];  H.mode = [H.mode; L.mode(k)];  H.cycle = [H.cycle; L.cycle(k)];
             % updated table points (weighted count >= 100): median |error| per group
             nm = ["r0" "r1" "tau"]; tb = ["tabR0" "tabR1" "tabTau"]; cn = ["cntR0" "cntR1" "cntTau"];
-            te = nan(1, 13, 3);
+            te = nan(1, 13, 3); tbias = te;
             for q = 1:3
                 Tn = ecmTruthNow(obj.P, L.sohr(end, :), nm(q));
-                e = abs(L.(tb(q)) - Tn) ./ Tn;
+                e = (L.(tb(q)) - Tn) ./ Tn;
                 for g = 1:13
                     v = L.(cn(q))(:, :, g) >= 100; eg = e(:, :, g);
-                    if any(v(:)), te(1, g, q) = 100 * median(eg(v)); end
+                    if any(v(:)), te(1, g, q) = 100 * median(abs(eg(v))); tbias(1, g, q) = 100 * median(eg(v)); end
                 end
             end
-            H.tabT = [H.tabT; L.t(end)];  H.tabErr = [H.tabErr; te];
+            H.tabT = [H.tabT; L.t(end)];  H.tabErr = [H.tabErr; te];  H.tabBias = [H.tabBias; tbias];
             obj.H = H;
             % keep only the end state of the chunk (tables, counts, last values)
             last = struct();

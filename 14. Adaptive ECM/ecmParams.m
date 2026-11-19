@@ -53,6 +53,12 @@ function P = ecmParams(opts)
 %   ErrBase     "current": estimator starts from the true values at the start
 %               (incl. the set SOH) x (1 + d); "new": from new-cell values x (1 + d)
 %   NCycles     stop after this many schedule cycles (default inf)
+%   AgeingScale multiplies the ageing rates: 10 reaches end of life in ~60 EFC instead
+%               of ~600 (fast-forward; the estimator then sees a 10x faster drift)
+%   Method      parameter identification feeding the tables: "ffrls" (R0 FFRLS on
+%               differences + IV-FFRLS for the RC branch, default) or "dekf" (parameter
+%               filter of a dual EKF, after Plett 2004). Same state EKF, tables,
+%               spreading and capacity estimator in both.
 %
 % SOH definitions: SOHq = Q / Q_new, SOHr = R_new / R (both 1 when new, falling).
 % End of life: SOHq = 0.7.
@@ -72,6 +78,9 @@ arguments
     opts.Degradation (1,1) logical = true
     opts.ErrBase (1,1) string {mustBeMember(opts.ErrBase, ["current" "new"])} = "current"
     opts.NCycles (1,1) double = inf    % stop after this many schedule cycles
+    opts.Method (1,1) string {mustBeMember(opts.Method, ["ffrls" "dekf"])} = "ffrls"
+    opts.AgeingScale (1,1) double = 1  % multiplies all ageing rates (fast-forward ageing)
+    opts.TrendQ (1,1) logical = false  % capacity: alpha-beta trend vs charge throughput (derivative test)
 end
 
 here = fileparts(mfilename("fullpath"));
@@ -146,6 +155,8 @@ D.eolSohq = 0.7;
 D.kQcyc = 0.3 / 600;  D.kRcyc = 0.6 / 600;
 D.kQcal = 0.02 / (365 * 86400);  D.kRcal = 0.03 / (365 * 86400);
 D.EaCyc = 20e3;  D.EaCal = 50e3;
+D.scale = opts.AgeingScale;
+D.kQcyc = D.kQcyc * D.scale;  D.kRcyc = D.kRcyc * D.scale;  D.kQcal = D.kQcal * D.scale;  D.kRcal = D.kRcal * D.scale;
 P.deg = D;
 
 % Initial conditions per group (defaults, then opts.IC)
@@ -268,7 +279,20 @@ P.est.init.th0 = reshape(P.est.init.r0(6,2,:), 1, []);
 aInit = exp(-P.TsRc ./ reshape(P.est.init.tau(6,2,:), 1, []));
 P.est.init.thRc = [aInit; reshape(P.est.init.r1(6,2,:), 1, []) .* (1 - aInit); zeros(1, P.nG)];
 
+P.est.init.phi = [log([reshape(P.est.init.r0(6,2,:), 1, []); reshape(P.est.init.r1(6,2,:), 1, []); ...
+    reshape(P.est.init.tau(6,2,:), 1, [])]); zeros(1, P.nG)];
+
 %% Estimator tuning (see adaptiveEcm.slx)
+P.est.method    = opts.Method;
+P.est.methodId  = double(opts.Method == "dekf") + 1;
+% dual EKF parameter filter (log parameters, per 0.1 s step)
+P.est.dekfP0    = diag([0.05 0.05 0.05 5e-3].^2);   % 5 % prior std (params), 5 mV (OCV offset)
+P.est.dekfQ     = diag([2e-5 2e-5 2e-5 2e-6].^2);   % random walk per step: ~0.4 %/sqrt(h), ~0.4 mV/sqrt(h)
+P.est.dekfR     = (2e-3)^2;                      % V^2
+P.est.dekfInfo  = (0.01)^2;                      % R0 table writes when its std < 1 %
+P.est.dekfInfoRc = (0.03)^2;                     % R1, tau1 table writes when their std < 3 %
+P.est.lambdaD   = 0.999;                         % lag of the estimate location and excitation average (~100 s)
+P.est.excMinD   = 0.01;                          % A^2, mean (0.1 s current change)^2 needed for table writes
 P.est.lambda0   = 0.999;     % R0 forgetting factor, per 0.1 s sample (memory ~100 s)
 P.est.lambdaRc  = 0.995;     % RC forgetting factor, per 1 s sample (memory ~200 s)
 P.est.p0R0      = 1;         % initial R0 variance (Ohm^2)
@@ -302,6 +326,9 @@ P.est.restT     = 1200;      % s, rest needed before an OCV reading for capacity
 P.est.capMinDz  = 0.20;      % minimum SOC change between two rest readings
 P.est.capW0     = 0.1;       % weight of the starting capacity, in SOC units
 P.est.capLambda = 0.9;       % forgetting per capacity update
+P.est.trendQ    = opts.TrendQ;   % capacity trend (alpha-beta on Q vs charge throughput)
+P.est.trendAlpha = 0.7;      % level gain per capacity reading
+P.est.trendBeta  = 0.2;      % slope gain per capacity reading
 end
 
 function C = loadCells(folder, seed, nominal)

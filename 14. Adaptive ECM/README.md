@@ -148,6 +148,53 @@ Errors at the operating point use the table values the EKF actually uses. The "S
 - **Independent starting errors:** spreading does nothing useful, and is slightly worse at the never-visited ends (2.9 % against 2.6 %). Neighbours carry no information about a point whose error is independent of theirs. The benefit therefore depends on the real table errors being smooth, which is plausible for a table from another cell or an older characterisation, but is an assumption.
 - **Convergence times with independent errors:** these look fast (about 0.3 h) only because randomly signed point errors partly cancel at points between table points. That is not real convergence.
 
+## Bench extensions (2026-11-20)
+
+All plant additions are **placeholders**.
+
+- **Temperature dependence.** R0, R1 and τ1 follow Arrhenius (Ea 15, 30 and 10 kJ/mol, reference 25 °C) on a 10 °C grid. OCV and capacity do not depend on temperature. `ecmParams(TempDep=false)` switches it off.
+- **Degradation.** Equivalent full cycles are counted as EFC = Ah throughput / (2 Q_new).
+  - Capacity loss: 0.3/600 per EFC from cycling, plus 2 %/year calendar.
+  - Resistance growth: 0.6/600 per EFC from cycling, plus 3 %/year calendar.
+  - Both are Arrhenius in temperature (Ea 20 kJ/mol cycling, 50 kJ/mol calendar).
+  - SOHq = Q/Q_new and SOHr = R_new/R. End of life is SOHq = 70 %, about 600 EFC at 25 °C.
+  - `AgeingScale` fast-forwards ageing; `Degradation=false` switches it off.
+  - `checkFastPlant` switches both temperature dependence and degradation off, and still passes (0.012 mV).
+- **Initial conditions per group** (`IC`, and the app's Initial conditions tab): SOC, SOHr, SOHq, temperature, cycles, and ambient temperature. `ecmSohFromCycles` converts a cycle count to SOH. `ErrBase` sets whether the estimator's starting error is relative to the aged true values or to new-cell values.
+- **Ideal-excitation load** (`Profile="ideal"`, `ecmIdealProfile`):
+  - a multisine with 37 log-spaced harmonics up to 2 Hz, plus random steps held 0.3–60 s;
+  - the same average as CYCLE A (2.78 A) and nearly the same peak (15.06 A against 15.16 A);
+  - short charge pulses down to −3 A.
+- **Engine, batch and replay.**
+  - `EcmEngine` runs in chunks, keeps a decimated history, and saves and loads results, so a run can be continued.
+  - `ecmBatch` runs N cycles flat out at about 1100× real time, including the build.
+  - `ecmBatchMany` runs several batches in parallel on process workers.
+  - The app's "Open results…" and replay slider step through a saved run.
+- **Dual EKF** (`Method="dekf"`). This is the parameter filter of a dual EKF after Plett 2004:
+  - parameters are ln R0, ln R1, ln τ1 and an OCV offset;
+  - it uses an output-error formulation with recursive sensitivities;
+  - updates happen only while the current varies;
+  - the state EKF uses the filter's previous estimates.
+
+  It feeds the same tables, spreading and capacity estimator as the FFRLS path.
+
+### Method and load comparison (48 h, smooth starting errors 2–5 %, seed 1, ageing and temperature dependence on)
+
+Error at the operating point over the last 24 h, median / 95th percentile, %:
+
+| Method | Load | R0 | R1 | τ1 | Table points, median R1 / τ1 |
+|---|---|---|---|---|---|
+| FFRLS + EKF | CYCLE A | 0.15 / 0.75 | 2.6 / 7.6 | 2.9 / 8.4 | 2.9 / 3.3 |
+| FFRLS + EKF | ideal | 0.15 / 0.75 | **1.0 / 3.9** | **2.0 / 5.8** | **1.7 / 2.3** |
+| dual EKF | CYCLE A | 0.36 / 2.3 | 16 / 146 | 9.7 / 176 | 7.8 / 7.5 |
+| dual EKF | ideal | 0.60 / 6.3 | 9.0 / 108 | 8.2 / 185 | 5.5 / 6.3 |
+
+- **Ideal excitation** clearly helps R1 and τ1 with FFRLS: R1 is at 1 % median, but its 95th percentile is still 3.9 %. It changes nothing for R0 and capacity.
+- **The dual EKF, as implemented here, is worse than FFRLS on every measure,** with occasional large excursions (the 95th percentiles above 100 %).
+  - It has not been tuned beyond first choices (Q, R, the gating, the offset term). Until it has, this comparison says nothing about dual EKFs in general.
+  - A first version without the OCV offset was biased in proportion to each group's capacity error, through the SOC estimate. The offset fixed that.
+- A first version of the ideal profile (steps held 2–60 s, multisine up to 0.2 Hz) had too few fast current steps. R0 never passed its information threshold, and R1 and τ1 were then biased by the unlearned R0. The fast content was added for that reason. CYCLE A changes by more than 1 A in about 13 % of 0.1 s steps.
+
 ## Limits
 
 - **Best-case model match.** The plant and the estimator have the same 1-RC structure, the plant has no temperature dependence, and there is no hysteresis or diffusion.

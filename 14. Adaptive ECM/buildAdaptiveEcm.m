@@ -32,7 +32,7 @@ m = Simulink.Mask.create(G);
 mp = ["r0Init" "ECM.est.init.r0" "3"; "r1Init" "ECM.est.init.r1" "3"; "tauInit" "ECM.est.init.tau" "3"; ...
       "c0Init" "ECM.est.init.count(:,:,:,1)" "3"; "c1Init" "ECM.est.init.count(:,:,:,2)" "3"; ...
       "c2Init" "ECM.est.init.count(:,:,:,3)" "3"; "QInit" "ECM.est.init.Q" "2"; ...
-      "th0Init" "ECM.est.init.th0" "2"; "thRcInit" "ECM.est.init.thRc" "2"];
+      "th0Init" "ECM.est.init.th0" "2"; "thRcInit" "ECM.est.init.thRc" "2"; "phiInit" "ECM.est.init.phi" "2"];
 for k = 1:size(mp, 1)
     m.addParameter("Name", mp(k,1), "Prompt", mp(k,1), "Value", mp(k,2), "Type", "edit");
 end
@@ -115,7 +115,15 @@ S = subsys(G, "opPoint", ["z" "T" "tabR0" "tabR1" "tabTau"], ["R0" "R1" "tau"]);
 buildOpPoint(S);
 C(G, "ekf/3", "opPoint/1"); C(G, "Tg/1", "opPoint/2");
 C(G, "fill_tabR0/1", "opPoint/3"); C(G, "fill_tabR1/1", "opPoint/4"); C(G, "fill_tabTau/1", "opPoint/5");
-C(G, "opPoint/1", "ekf/5"); C(G, "opPoint/2", "ekf/6"); C(G, "opPoint/3", "ekf/7");
+% state filter parameters: the tables (FFRLS path) or, for the dual EKF, the parameter
+% filter's previous estimates (as in Plett's dual EKF); switched by ECM.est.methodId
+for k = 1:3
+    nmP = ["R0" "R1" "tau"];
+    B(G, "dekfPrev" + nmP(k), "UD", "InitialCondition", "exp(phiInit(" + k + "))", "SampleTime", "ECM.Ts");
+    B(G, "ekfIn" + nmP(k), "Switch", "Criteria", "u2 > Threshold", "Threshold", "1.5");
+    C(G, "dekfPrev" + nmP(k) + "/1", "ekfIn" + nmP(k) + "/1"); C(G, "opPoint/" + k, "ekfIn" + nmP(k) + "/3");
+    C(G, "ekfIn" + nmP(k) + "/1", "ekf/" + (4 + k));
+end
 
 % R0 RLS and table
 S = subsys(G, "r0Ident", ["v" "vPrev" "i" "iPrev" "first"], ["R0" "informed"]);
@@ -127,7 +135,7 @@ buildLaggedTableUpdate(S, "ECM.est.lambda0", "ECM.est.eta", "ECM.est.c0R0");
 C(G, "cntR0Mem/1", "r0Table/7");
 C(G, "r0Ident/1", "r0Table/1"); C(G, "r0Ident/2", "r0Table/2"); C(G, "ekf/1", "r0Table/3");
 C(G, "Tg/1", "r0Table/4"); C(G, "first/1", "r0Table/5"); C(G, "fill_tabR0/1", "r0Table/6");
-C(G, "r0Table/1", "upd_tabR0/2"); C(G, "r0Table/2", "upd_cntR0/2");
+% (increments go through the method switches below)
 
 % RC branch: y = OCV(zh) - v - R0*i, identified every ECM.TsRc
 B(G, "ocv", "LUT1", "BreakpointsForDimension1", "ECM.est.socBp", "Table", "ECM.est.ocv", "ExtrapMethod", "Clip", "UseLastTableValue", "on");
@@ -156,12 +164,37 @@ C(G, "y/1", "rcIdent/1"); C(G, "iWin/1", "rcIdent/2"); C(G, "opPoint/2", "rcIden
 C(G, "ekf/1", "rcIdent/5"); C(G, "Tg/1", "rcIdent/6"); C(G, "fill_tabR1/1", "rcIdent/7"); C(G, "fill_tabTau/1", "rcIdent/8");
 C(G, "cntR1Mem/1", "rcIdent/9"); C(G, "cntTauMem/1", "rcIdent/10");
 C(G, "tick/1", "rcIdent/Enable");
-C(G, "rcIdent/1", "upd_tabR1/2"); C(G, "rcIdent/2", "upd_tabTau/2");
-C(G, "rcIdent/3", "upd_cntR1/2"); C(G, "rcIdent/4", "upd_cntTau/2");
+
+% ---- dual EKF parameter filter (method 2) and its table updates
+S = subsys(G, "dekf", ["v" "i" "iPrev" "zh" "first"], ["R0" "R1" "tau" "ok0" "okRc"]);
+buildDekf(S);
+C(G, "vm/1", "dekf/1"); C(G, "im/1", "dekf/2"); C(G, "iPrev/1", "dekf/3"); C(G, "ekf/1", "dekf/4"); C(G, "first/1", "dekf/5");
+dt = ["R0" "tabR0" "cntR0" "1" "4"; "R1" "tabR1" "cntR1" "2" "5"; "Tau" "tabTau" "cntTau" "3" "5"];
+for k = 1:3
+    nmT = "dekfTable" + dt(k,1);
+    S = subsys(G, nmT, ["theta" "enable" "z" "T" "first" "tab" "cnt"], ["dTab" "dCnt"]);
+    buildLaggedTableUpdate(S, "ECM.est.lambdaD", "ECM.est.eta", "ECM.est.c0R0");
+    C(G, "dekf/" + dt(k,4), nmT + "/1"); C(G, "dekf/" + dt(k,5), nmT + "/2");
+    C(G, "ekf/1", nmT + "/3"); C(G, "Tg/1", nmT + "/4"); C(G, "first/1", nmT + "/5");
+    C(G, "fill_" + dt(k,2) + "/1", nmT + "/6"); C(G, dt(k,3) + "Mem/1", nmT + "/7");
+end
+% ---- method switches: ECM.est.methodId 1 = FFRLS + EKF, 2 = dual EKF
+B(G, "method", "Const", "Value", "ECM.est.methodId");
+C(G, "dekf/1", "dekfPrevR0/1"); C(G, "dekf/2", "dekfPrevR1/1"); C(G, "dekf/3", "dekfPrevtau/1");
+for nmP = ["R0" "R1" "tau"], C(G, "method/1", "ekfIn" + nmP + "/2"); end
+sw = ["sw_tabR0" "dekfTableR0/1" "r0Table/1" "upd_tabR0/2"; "sw_cntR0" "dekfTableR0/2" "r0Table/2" "upd_cntR0/2"; ...
+      "sw_tabR1" "dekfTableR1/1" "rcIdent/1" "upd_tabR1/2"; "sw_cntR1" "dekfTableR1/2" "rcIdent/3" "upd_cntR1/2"; ...
+      "sw_tabTau" "dekfTableTau/1" "rcIdent/2" "upd_tabTau/2"; "sw_cntTau" "dekfTableTau/2" "rcIdent/4" "upd_cntTau/2"; ...
+      "sw_r0Rls" "dekf/1" "r0Ident/1" ""; "sw_r1Rls" "dekf/2" "rcIdent/5" ""; "sw_tauRls" "dekf/3" "rcIdent/6" ""];
+for k = 1:size(sw, 1)
+    B(G, sw(k,1), "Switch", "Criteria", "u2 > Threshold", "Threshold", "1.5");
+    C(G, sw(k,2), sw(k,1) + "/1"); C(G, "method/1", sw(k,1) + "/2"); C(G, sw(k,3), sw(k,1) + "/3");
+    if sw(k,4) ~= "", C(G, sw(k,1) + "/1", sw(k,4)); end
+end
 
 % outports
 outs = ["zh" "ekf/1"; "v1h" "ekf/2"; "r0" "opPoint/1"; "r1" "opPoint/2"; "tau" "opPoint/3"; ...
-        "Q" "capacity/2"; "r0Rls" "r0Ident/1"; "r1Rls" "rcIdent/5"; "tauRls" "rcIdent/6"; ...
+        "Q" "capacity/2"; "r0Rls" "sw_r0Rls/1"; "r1Rls" "sw_r1Rls/1"; "tauRls" "sw_tauRls/1"; ...
         "tabR0" "fill_tabR0/1"; "tabR1" "fill_tabR1/1"; "tabTau" "fill_tabTau/1"; ...
         "cntR0" "upd_cntR0/1"; "cntR1" "upd_cntR1/1"; "cntTau" "upd_cntTau/1"];
 for k = 1:size(outs, 1)
@@ -169,6 +202,135 @@ for k = 1:size(outs, 1)
     C(G, outs(k,2), outs(k,1) + "/1");
 end
 arrange(G);
+end
+
+%% ===================================================================== dual EKF
+function buildDekf(S)
+% Parameter filter of a dual EKF (after Plett 2004, part 3), per group, every 0.1 s.
+% Parameters phi = [ln R0; ln R1; ln tau1; dOCV] (random walk; logs give relative steps).
+% dOCV is a voltage offset that absorbs slow OCV errors from the SOC estimate (e.g. a
+% wrong capacity), as the constant d does in the FFRLS path.
+% Output-error form: the RC voltage is simulated with the current parameters (v1),
+% with its sensitivities s1 = dv1/dln R1 and st = dv1/dln tau1 propagated recursively:
+%   v1 = a v1 + R1 (1-a) i_prev,  a = exp(-Ts/tau1)
+%   s1 = a s1 + R1 (1-a) i_prev,  st = a st + a (Ts/tau1) (v1_prev - R1 i_prev)
+% Measurement: v = OCV(zh) + dOCV - v1 - R0 i, zh from the state filter (ekf block).
+%   H = [-R0 i, -s1, -st, 1],  Pm = P + Q,  K = Pm H'/(H Pm H' + Rv),  phi += K e
+% The parameters are updated only while the current varies (as the FFRLS path);
+% during rest and constant-current charge they hold.
+% Table writes are allowed when the current varies (excitation) and P is small.
+% Unlike the FFRLS path there is no forgetting; tracking comes from Q.
+% vector helpers
+B(S, "phiMem", "UD", "InitialCondition", "phiInit", "SampleTime", "ECM.Ts");
+B(S, "PMem", "UD", "InitialCondition", "ECM.est.dekfP0", "SampleTime", "ECM.Ts");
+B(S, "v1Mem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "s1Mem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "stMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "p", "Math", "Operator", "exp"); C(S, "phiMem/1", "p/1");
+sel = ["R0p" "1"; "R1p" "2"; "taup" "3"];
+for k = 1:3
+    B(S, sel(k,1), "Selector", "NumberOfDimensions", "1", "IndexOptions", "Index vector (dialog)", "Indices", sel(k,2), "InputPortWidth", "4");
+    C(S, "p/1", sel(k,1) + "/1");
+end
+B(S, "TsOverTau", "Prod", "Inputs", "*/"); B(S, "Ts", "Const", "Value", "ECM.Ts");
+C(S, "Ts/1", "TsOverTau/1"); C(S, "taup/1", "TsOverTau/2");
+B(S, "mTsOverTau", "Gain", "Gain", "-1"); C(S, "TsOverTau/1", "mTsOverTau/1");
+B(S, "a", "Math", "Operator", "exp"); C(S, "mTsOverTau/1", "a/1");
+B(S, "na", "Gain", "Gain", "-1"); B(S, "oma", "Bias", "Bias", "1"); C(S, "a/1", "na/1"); C(S, "na/1", "oma/1");
+B(S, "drive", "Prod", "Inputs", "3"); C(S, "R1p/1", "drive/1"); C(S, "oma/1", "drive/2"); C(S, "iPrev/1", "drive/3");
+% first step: v1 = 0, sensitivities 0, no parameter update
+B(S, "zero", "Const", "Value", "0");
+pre = ["v1Prev" "v1Mem"; "s1Prev" "s1Mem"; "stPrev" "stMem"];
+for k = 1:3
+    B(S, pre(k,1), "Switch", "Criteria", "u2 > Threshold", "Threshold", "0.5");
+    C(S, "zero/1", pre(k,1) + "/1"); C(S, "first/1", pre(k,1) + "/2"); C(S, pre(k,2) + "/1", pre(k,1) + "/3");
+end
+B(S, "av1", "Prod", "Inputs", "2"); C(S, "a/1", "av1/1"); C(S, "v1Prev/1", "av1/2");
+B(S, "v1", "Sum", "Inputs", "++"); C(S, "av1/1", "v1/1"); C(S, "drive/1", "v1/2"); C(S, "v1/1", "v1Mem/1");
+B(S, "as1", "Prod", "Inputs", "2"); C(S, "a/1", "as1/1"); C(S, "s1Prev/1", "as1/2");
+B(S, "s1", "Sum", "Inputs", "++"); C(S, "as1/1", "s1/1"); C(S, "drive/1", "s1/2"); C(S, "s1/1", "s1Mem/1");
+B(S, "R1iP", "Prod", "Inputs", "2"); C(S, "R1p/1", "R1iP/1"); C(S, "iPrev/1", "R1iP/2");
+B(S, "dv", "Sum", "Inputs", "+-"); C(S, "v1Prev/1", "dv/1"); C(S, "R1iP/1", "dv/2");
+B(S, "dadphi", "Prod", "Inputs", "2"); C(S, "a/1", "dadphi/1"); C(S, "TsOverTau/1", "dadphi/2");
+B(S, "stDrive", "Prod", "Inputs", "2"); C(S, "dadphi/1", "stDrive/1"); C(S, "dv/1", "stDrive/2");
+B(S, "ast", "Prod", "Inputs", "2"); C(S, "a/1", "ast/1"); C(S, "stPrev/1", "ast/2");
+B(S, "st", "Sum", "Inputs", "++"); C(S, "ast/1", "st/1"); C(S, "stDrive/1", "st/2"); C(S, "st/1", "stMem/1");
+% measurement
+B(S, "ocv", "LUT1", "BreakpointsForDimension1", "ECM.est.socBp", "Table", "ECM.est.ocv", "ExtrapMethod", "Clip", "UseLastTableValue", "on");
+C(S, "zh/1", "ocv/1");
+B(S, "R0i", "Prod", "Inputs", "2"); C(S, "R0p/1", "R0i/1"); C(S, "i/1", "R0i/2");
+B(S, "selD", "Selector", "NumberOfDimensions", "1", "IndexOptions", "Index vector (dialog)", "Indices", "4", "InputPortWidth", "4");
+C(S, "phiMem/1", "selD/1");
+B(S, "yhat", "Sum", "Inputs", "+--+"); C(S, "ocv/1", "yhat/1"); C(S, "v1/1", "yhat/2"); C(S, "R0i/1", "yhat/3"); C(S, "selD/1", "yhat/4");
+B(S, "e", "Sum", "Inputs", "+-"); C(S, "v/1", "e/1"); C(S, "yhat/1", "e/2");
+B(S, "h1", "Gain", "Gain", "-1"); C(S, "R0i/1", "h1/1");
+B(S, "h2", "Gain", "Gain", "-1"); C(S, "s1/1", "h2/1");
+B(S, "h3", "Gain", "Gain", "-1"); C(S, "st/1", "h3/1");
+B(S, "h4", "Const", "Value", "1");
+B(S, "Hc", "Concat", "NumInputs", "4", "Mode", "Multidimensional array", "ConcatenateDimension", "1");
+C(S, "h1/1", "Hc/1"); C(S, "h2/1", "Hc/2"); C(S, "h3/1", "Hc/3"); C(S, "h4/1", "Hc/4");
+B(S, "Hr", "Math", "Operator", "transpose"); C(S, "Hc/1", "Hr/1");
+B(S, "Qp", "Const", "Value", "ECM.est.dekfQ");
+B(S, "Pm", "Sum", "Inputs", "++"); C(S, "PMem/1", "Pm/1"); C(S, "Qp/1", "Pm/2");
+B(S, "PHt", "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, "Pm/1", "PHt/1"); C(S, "Hc/1", "PHt/2");
+B(S, "HPHt", "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, "Hr/1", "HPHt/1"); C(S, "PHt/1", "HPHt/2");
+B(S, "Sv", "Bias", "Bias", "ECM.est.dekfR"); C(S, "HPHt/1", "Sv/1");
+B(S, "K", "Prod", "Inputs", "*/"); C(S, "PHt/1", "K/1"); C(S, "Sv/1", "K/2");
+% excitation (0.1 s current changes) and informed flags
+B(S, "di", "Sum", "Inputs", "+-"); C(S, "i/1", "di/1"); C(S, "iPrev/1", "di/2");
+B(S, "di2", "Prod", "Inputs", "2"); C(S, "di/1", "di2/1"); C(S, "di/1", "di2/2");
+B(S, "excMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "excA", "Gain", "Gain", "ECM.est.lambdaD"); C(S, "excMem/1", "excA/1");
+B(S, "excB", "Gain", "Gain", "1-ECM.est.lambdaD"); C(S, "di2/1", "excB/1");
+B(S, "exc", "Sum", "Inputs", "++"); C(S, "excA/1", "exc/1"); C(S, "excB/1", "exc/2"); C(S, "exc/1", "excMem/1");
+B(S, "excMin", "Const", "Value", "ECM.est.excMinD");
+B(S, "excOk", "Rel", "Operator", ">="); C(S, "exc/1", "excOk/1"); C(S, "excMin/1", "excOk/2");
+B(S, "notFirst", "Logic", "Operator", "NOT"); C(S, "first/1", "notFirst/1");
+B(S, "updL", "Logic", "Operator", "AND", "Inputs", "2"); C(S, "notFirst/1", "updL/1"); C(S, "excOk/1", "updL/2");
+B(S, "upd", "Conv", "OutDataTypeStr", "double"); C(S, "updL/1", "upd/1");
+B(S, "Ke", "Prod", "Inputs", "3"); C(S, "K/1", "Ke/1"); C(S, "e/1", "Ke/2"); C(S, "upd/1", "Ke/3");
+B(S, "phiTry", "Sum", "Inputs", "++"); C(S, "phiMem/1", "phiTry/1"); C(S, "Ke/1", "phiTry/2");
+% keep the parameters within physical bounds (relative to the start: x0.2 .. x5)
+B(S, "phiLo", "Const", "Value", "phiInit - [log(5); log(5); log(5); 0.1]"); B(S, "phiHi", "Const", "Value", "phiInit + [log(5); log(5); log(5); 0.1]");
+B(S, "phiMax", "MinMax", "Function", "max", "Inputs", "2"); C(S, "phiTry/1", "phiMax/1"); C(S, "phiLo/1", "phiMax/2");
+B(S, "phiN", "MinMax", "Function", "min", "Inputs", "2"); C(S, "phiMax/1", "phiN/1"); C(S, "phiHi/1", "phiN/2");
+C(S, "phiN/1", "phiMem/1");
+B(S, "HrPm", "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, "Hr/1", "HrPm/1"); C(S, "Pm/1", "HrPm/2");
+B(S, "KHP", "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, "K/1", "KHP/1"); C(S, "HrPm/1", "KHP/2");
+B(S, "KHPon", "Prod", "Inputs", "2"); C(S, "KHP/1", "KHPon/1"); C(S, "upd/1", "KHPon/2");
+B(S, "Pn0", "Sum", "Inputs", "+-"); C(S, "Pm/1", "Pn0/1"); C(S, "KHPon/1", "Pn0/2");
+% cap the covariance (no information during rest and constant-current charge)
+B(S, "eye3", "Const", "Value", "eye(4)");
+B(S, "dP", "Prod", "Inputs", "2"); C(S, "Pn0/1", "dP/1"); C(S, "eye3/1", "dP/2");
+B(S, "tr", "Sum", "Inputs", "+", "CollapseMode", "All dimensions"); C(S, "dP/1", "tr/1");
+B(S, "pMax", "Const", "Value", "trace(ECM.est.dekfP0)");
+B(S, "ratio", "Prod", "Inputs", "*/"); C(S, "pMax/1", "ratio/1"); C(S, "tr/1", "ratio/2");
+B(S, "one", "Const", "Value", "1");
+B(S, "sc", "MinMax", "Function", "min", "Inputs", "2"); C(S, "ratio/1", "sc/1"); C(S, "one/1", "sc/2");
+B(S, "Pn", "Prod", "Inputs", "2"); C(S, "Pn0/1", "Pn/1"); C(S, "sc/1", "Pn/2"); C(S, "Pn/1", "PMem/1");
+% outputs
+B(S, "pN", "Math", "Operator", "exp"); C(S, "phiN/1", "pN/1");
+for k = 1:3
+    B(S, "o" + sel(k,1), "Selector", "NumberOfDimensions", "1", "IndexOptions", "Index vector (dialog)", "Indices", sel(k,2), "InputPortWidth", "4");
+    C(S, "pN/1", "o" + sel(k,1) + "/1");
+end
+C(S, "oR0p/1", "R0/1"); C(S, "oR1p/1", "R1/1"); C(S, "otaup/1", "tau/1");
+dg = ["d1" "[1;0;0;0]" "[1 0 0 0]"; "d2" "[0;1;0;0]" "[0 1 0 0]"; "d3" "[0;0;1;0]" "[0 0 1 0]"];
+for k = 1:3
+    B(S, dg(k,1) + "c", "Const", "Value", dg(k,2), "VectorParams1D", "off");
+    B(S, dg(k,1) + "r", "Const", "Value", dg(k,3), "VectorParams1D", "off");
+    B(S, dg(k,1) + "Pc", "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, "Pn/1", dg(k,1) + "Pc/1"); C(S, dg(k,1) + "c/1", dg(k,1) + "Pc/2");
+    B(S, dg(k,1), "Prod", "Inputs", "2", "Multiplication", "Matrix(*)"); C(S, dg(k,1) + "r/1", dg(k,1) + "/1"); C(S, dg(k,1) + "Pc/1", dg(k,1) + "/2");
+end
+B(S, "info0", "Const", "Value", "ECM.est.dekfInfo"); 
+B(S, "c0", "Rel", "Operator", "<"); C(S, "d1/1", "c0/1"); C(S, "info0/1", "c0/2");
+B(S, "infoRc", "Const", "Value", "ECM.est.dekfInfoRc");
+B(S, "c1", "Rel", "Operator", "<"); C(S, "d2/1", "c1/1"); C(S, "infoRc/1", "c1/2");
+B(S, "c2", "Rel", "Operator", "<"); C(S, "d3/1", "c2/1"); C(S, "infoRc/1", "c2/2");
+B(S, "ok0L", "Logic", "Operator", "AND", "Inputs", "3"); C(S, "c0/1", "ok0L/1"); C(S, "excOk/1", "ok0L/2"); C(S, "notFirst/1", "ok0L/3");
+B(S, "okRcL", "Logic", "Operator", "AND", "Inputs", "4"); C(S, "c1/1", "okRcL/1"); C(S, "c2/1", "okRcL/2"); C(S, "excOk/1", "okRcL/3"); C(S, "notFirst/1", "okRcL/4");
+C(S, "ok0L/1", "ok0/1"); C(S, "okRcL/1", "okRc/1");
+arrange(S);
 end
 
 %% ===================================================================== fill
@@ -544,7 +706,6 @@ function buildCapacity(S)
 B(S, "S1Mem", "UD", "InitialCondition", "ECM.est.capW0*QInit", "SampleTime", "ECM.Ts");
 B(S, "S2Mem", "UD", "InitialCondition", "ECM.est.capW0", "SampleTime", "ECM.Ts");
 B(S, "Qprev_", "Prod", "Inputs", "*/"); C(S, "S1Mem/1", "Qprev_/1"); C(S, "S2Mem/1", "Qprev_/2");
-C(S, "Qprev_/1", "Qprev/1");
 % charge since the last rest reading
 B(S, "AhMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
 B(S, "dAh", "Gain", "Gain", "ECM.Ts/3600"); C(S, "i/1", "dAh/1");
@@ -587,7 +748,48 @@ B(S, "lS2", "Gain", "Gain", "ECM.est.capLambda"); C(S, "S2Mem/1", "lS2/1");
 B(S, "S2n", "Sum", "Inputs", "++"); C(S, "lS2/1", "S2n/1"); C(S, "absDz/1", "S2n/2");
 B(S, "S2", "Switch", "Criteria", "u2 ~= 0"); C(S, "S2n/1", "S2/1"); C(S, "use/1", "S2/2"); C(S, "S2Mem/1", "S2/3");
 C(S, "S1/1", "S1Mem/1"); C(S, "S2/1", "S2Mem/1");
-B(S, "Qn", "Prod", "Inputs", "*/"); C(S, "S1/1", "Qn/1"); C(S, "S2/1", "Qn/2"); C(S, "Qn/1", "Q/1");
+B(S, "Qn", "Prod", "Inputs", "*/"); C(S, "S1/1", "Qn/1"); C(S, "S2/1", "Qn/2");
+% ---- trend option (ECM.est.trendQ): alpha-beta filter on the capacity measurements
+% against charge throughput E (Ah). Each rest pair gives Qm = |Ah|/|dz|, placed at the
+% middle of its throughput interval. Between readings the capacity is extrapolated
+% along the fitted slope:  Q(E) = Qab + s (E - El).
+B(S, "EMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "absIt", "Abs"); C(S, "i/1", "absIt/1");
+B(S, "dE", "Gain", "Gain", "ECM.Ts/3600"); C(S, "absIt/1", "dE/1");
+B(S, "E", "Sum", "Inputs", "++"); C(S, "EMem/1", "E/1"); C(S, "dE/1", "E/2"); C(S, "E/1", "EMem/1");
+B(S, "ERMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "ER", "Switch", "Criteria", "u2 ~= 0"); C(S, "E/1", "ER/1"); C(S, "event/1", "ER/2"); C(S, "ERMem/1", "ER/3"); C(S, "ER/1", "ERMem/1");
+B(S, "Esum", "Sum", "Inputs", "++"); C(S, "ERMem/1", "Esum/1"); C(S, "E/1", "Esum/2");
+B(S, "Emid", "Gain", "Gain", "0.5"); C(S, "Esum/1", "Emid/1");
+B(S, "QabMem", "UD", "InitialCondition", "QInit", "SampleTime", "ECM.Ts");
+B(S, "sMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "ElMem", "UD", "InitialCondition", "0", "SampleTime", "ECM.Ts");
+B(S, "Qm", "Prod", "Inputs", "*/"); C(S, "absAh/1", "Qm/1"); C(S, "absDz/1", "Qm/2");
+B(S, "dEm", "Sum", "Inputs", "+-"); C(S, "Emid/1", "dEm/1"); C(S, "ElMem/1", "dEm/2");
+B(S, "sdE", "Prod", "Inputs", "2"); C(S, "sMem/1", "sdE/1"); C(S, "dEm/1", "sdE/2");
+B(S, "Qp", "Sum", "Inputs", "++"); C(S, "QabMem/1", "Qp/1"); C(S, "sdE/1", "Qp/2");
+B(S, "r", "Sum", "Inputs", "+-"); C(S, "Qm/1", "r/1"); C(S, "Qp/1", "r/2");
+B(S, "ar", "Gain", "Gain", "ECM.est.trendAlpha"); C(S, "r/1", "ar/1");
+B(S, "QabN", "Sum", "Inputs", "++"); C(S, "Qp/1", "QabN/1"); C(S, "ar/1", "QabN/2");
+B(S, "one", "Const", "Value", "1");
+B(S, "dEsafe", "MinMax", "Function", "max", "Inputs", "2"); C(S, "dEm/1", "dEsafe/1"); C(S, "one/1", "dEsafe/2");
+B(S, "rdE", "Prod", "Inputs", "*/"); C(S, "r/1", "rdE/1"); C(S, "dEsafe/1", "rdE/2");
+B(S, "br", "Gain", "Gain", "ECM.est.trendBeta"); C(S, "rdE/1", "br/1");
+B(S, "sN", "Sum", "Inputs", "++"); C(S, "sMem/1", "sN/1"); C(S, "br/1", "sN/2");
+B(S, "Qab", "Switch", "Criteria", "u2 ~= 0"); C(S, "QabN/1", "Qab/1"); C(S, "use/1", "Qab/2"); C(S, "QabMem/1", "Qab/3"); C(S, "Qab/1", "QabMem/1");
+B(S, "sS", "Switch", "Criteria", "u2 ~= 0"); C(S, "sN/1", "sS/1"); C(S, "use/1", "sS/2"); C(S, "sMem/1", "sS/3"); C(S, "sS/1", "sMem/1");
+B(S, "El", "Switch", "Criteria", "u2 ~= 0"); C(S, "Emid/1", "El/1"); C(S, "use/1", "El/2"); C(S, "ElMem/1", "El/3"); C(S, "El/1", "ElMem/1");
+% extrapolated capacity now (Q) and at the previous step (Qprev, for the EKF)
+B(S, "dEnow", "Sum", "Inputs", "+-"); C(S, "E/1", "dEnow/1"); C(S, "El/1", "dEnow/2");
+B(S, "sdEnow", "Prod", "Inputs", "2"); C(S, "sS/1", "sdEnow/1"); C(S, "dEnow/1", "sdEnow/2");
+B(S, "Qtr", "Sum", "Inputs", "++"); C(S, "Qab/1", "Qtr/1"); C(S, "sdEnow/1", "Qtr/2");
+B(S, "dEprev", "Sum", "Inputs", "+-"); C(S, "EMem/1", "dEprev/1"); C(S, "ElMem/1", "dEprev/2");
+B(S, "sdEprev", "Prod", "Inputs", "2"); C(S, "sMem/1", "sdEprev/1"); C(S, "dEprev/1", "sdEprev/2");
+B(S, "QtrPrev", "Sum", "Inputs", "++"); C(S, "QabMem/1", "QtrPrev/1"); C(S, "sdEprev/1", "QtrPrev/2");
+B(S, "trend", "Const", "Value", "double(ECM.est.trendQ)");
+B(S, "selQ", "Switch", "Criteria", "u2 ~= 0"); C(S, "Qtr/1", "selQ/1"); C(S, "trend/1", "selQ/2"); C(S, "Qn/1", "selQ/3");
+B(S, "selQp", "Switch", "Criteria", "u2 ~= 0"); C(S, "QtrPrev/1", "selQp/1"); C(S, "trend/1", "selQp/2"); C(S, "Qprev_/1", "selQp/3");
+C(S, "selQ/1", "Q/1"); C(S, "selQp/1", "Qprev/1");
 % reset the charge counter at each rest reading
 B(S, "AhNext", "Switch", "Criteria", "u2 ~= 0"); C(S, "zeroT/1", "AhNext/1"); C(S, "event/1", "AhNext/2"); C(S, "Ah/1", "AhNext/3");
 C(S, "AhNext/1", "AhMem/1");
