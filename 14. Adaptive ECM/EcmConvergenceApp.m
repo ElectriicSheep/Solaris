@@ -24,6 +24,8 @@ classdef EcmConvergenceApp < handle
         conv; P; mdl = "ecmOffline"
         tPlot = zeros(0,1); ePlot = zeros(0,13,4); zPlot = zeros(0,13); zhPlot = zeros(0,13)
         iPlot = zeros(0,1); vPlot = zeros(0,13); TPlot = zeros(0,13); whPlot = zeros(0,13)
+        modePlot = zeros(0,1)
+        tabT = zeros(0,1); tabErr = zeros(0,13,3)   % median |error| of updated table nodes, per chunk
         last                      % last chunk's log (tables, counts)
         op                        % operating point to continue from
         tDone = 0
@@ -143,7 +145,6 @@ classdef EcmConvergenceApp < handle
             ttl = ["R0 error (%)" "R1 error (%)" "\tau_1 error (%)" "Capacity error (%)"];
             for k = 1:4
                 app.convAx(k) = uiaxes(gl); title(app.convAx(k), ttl(k)); xlabel(app.convAx(k), "Simulated time (h)");
-                grid(app.convAx(k), "on"); hold(app.convAx(k), "on");
             end
             t2 = uitab(tg, "Title", "Time and energy to converge");
             gl2 = uigridlayout(t2, [1 1]);
@@ -211,6 +212,7 @@ classdef EcmConvergenceApp < handle
             app.conv = ecmConvergence(0.01, 600);
             app.tPlot = zeros(0,1); app.ePlot = zeros(0,13,4); app.zPlot = zeros(0,13); app.zhPlot = zeros(0,13);
             app.iPlot = zeros(0,1); app.vPlot = zeros(0,13); app.TPlot = zeros(0,13); app.whPlot = zeros(0,13);
+            app.modePlot = zeros(0,1); app.tabT = zeros(0,1); app.tabErr = zeros(0,13,3);
             app.op = []; app.tDone = 0; app.last = []; app.stopReq = false; app.paused = false;
             app.wallStart = tic;
         end
@@ -266,6 +268,18 @@ classdef EcmConvergenceApp < handle
             app.zPlot = [app.zPlot; L.z(k, :)]; app.zhPlot = [app.zhPlot; L.zh(k, :)];
             app.iPlot = [app.iPlot; L.i(k)]; app.vPlot = [app.vPlot; L.v(k, :)];
             app.TPlot = [app.TPlot; L.T(k, :)]; app.whPlot = [app.whPlot; L.Wh(k, :)];
+            app.modePlot = [app.modePlot; L.mode(k)];
+            % table nodes that have been updated (weighted count >= 100): median |error| per group
+            nm = ["r0" "r1" "tau"]; tb = ["tabR0" "tabR1" "tabTau"]; cn = ["cntR0" "cntR1" "cntTau"];
+            te = nan(1, 13, 3);
+            for q = 1:3
+                e = abs(L.(tb(q)) - app.P.truth.(nm(q))) ./ app.P.truth.(nm(q));
+                for gg = 1:13
+                    v = L.(cn(q))(:, :, gg) >= 100; eg = e(:, :, gg);
+                    if any(v(:)), te(1, gg, q) = 100 * median(eg(v)); end
+                end
+            end
+            app.tabT = [app.tabT; L.t(end)]; app.tabErr = [app.tabErr; te];
             app.last = L;
             app.saveBtn.Enable = "on";
         end
@@ -284,17 +298,9 @@ classdef EcmConvergenceApp < handle
                     app.speedLbl.Text = sprintf("%.0f x real time (%.0f s wall)", s / max(w, eps), w);
                 end
             end
-            % convergence plots
+            % convergence plots: |error| on a log scale; band = min..max over the 13 groups
             for p = 1:4
-                ax = app.convAx(p); cla(ax);
-                if ~isempty(th)
-                    plot(ax, th, app.ePlot(:, :, p), "Color", [0.6 0.6 0.6 0.5], "LineWidth", 0.5);
-                    plot(ax, th, app.ePlot(:, g, p), "Color", [0.85 0.33 0.1], "LineWidth", 1.8);
-                    yline(ax, [-1 1], "--", "Color", [0.1 0.5 0.1]);
-                    ct = app.conv.convT(g, p);
-                    if ~isnan(ct), xline(ax, ct/3600, "-", sprintf("G%d converged", g), "Color", [0.1 0.5 0.1]); end
-                    ylim(ax, [-8 8]);
-                end
+                app.drawConv(p, g, th);
             end
             % clock table
             if ~isempty(app.conv)
@@ -312,6 +318,51 @@ classdef EcmConvergenceApp < handle
                 plot(app.sigAx(4), th, app.TPlot); title(app.sigAx(4), "Group temperatures (°C)");
                 for k = 1:4, xlabel(app.sigAx(k), "Simulated time (h)"); end
             end
+        end
+
+        function drawConv(app, p, g, th)
+            % Plotted quantity: the largest |error| over the last 10 min of simulated time.
+            % This is the convergence rule itself: a curve below 1 % means "within the band
+            % for the last 10 min". It also removes the dips to zero where the error
+            % changes sign, which make a plain |error| on a log axis unreadable.
+            ax = app.convAx(p);
+            delete(ax.Children); legend(ax, "off"); hold(ax, "on");
+            ttl = ["R0" "R1" "\tau_1" "Capacity"];
+            set(ax, "YScale", "log"); ylim(ax, [0.01 30]); grid(ax, "on"); ax.YMinorGrid = "off";
+            yticks(ax, [0.01 0.1 1 10]); yticklabels(ax, ["0.01" "0.1" "1" "10"]);
+            xlabel(ax, "Simulated time (h)"); ylabel(ax, "worst |error| in last 10 min (%)");
+            title(ax, ttl(p));
+            if isempty(th), subtitle(ax, ""); hold(ax, "off"); return, end
+            xlim(ax, [0 max(th(end), 0.1)]);
+            shadePhases(ax, th, app.modePlot, p == 1);
+            dt = max(median(diff(th)) * 3600, 1);
+            n = max(round(600 / dt), 1);
+            E = movmax(max(abs(app.ePlot(:, :, p)), 0.01), [n-1 0], 1);
+            lo = min(E, [], 2); hi = max(E, [], 2); md = median(E, 2);
+            fill(ax, [th; flipud(th)], [lo; flipud(hi)], [0 0.45 0.74], "FaceAlpha", 0.20, ...
+                "EdgeColor", "none", "DisplayName", "13 groups (range)");
+            plot(ax, th, md, "Color", [0.3 0.6 0.95], "LineWidth", 1.3, "DisplayName", "median group");
+            plot(ax, th, E(:, g), "Color", [0.95 0.45 0.1], "LineWidth", 1.8, "DisplayName", "group " + g);
+            if p <= 3 && ~isempty(app.tabT)
+                plot(ax, app.tabT/3600, median(app.tabErr(:, :, p), 2, "omitnan"), "s-", "Color", [0.5 0.75 0.2], ...
+                    "MarkerFaceColor", [0.5 0.75 0.2], "MarkerSize", 3.5, "LineWidth", 1, ...
+                    "DisplayName", "table points updated so far (median)");
+            end
+            plot(ax, [0 th(end)], [1 1], "-", "Color", [0.2 0.75 0.3], "LineWidth", 1.5, "DisplayName", "1 % band");
+            % selected group: convergence point and status in the subtitle
+            ct = app.conv.convT(g, p); lt = app.conv.leftT(g, p);
+            if ~isnan(ct)
+                plot(ax, ct/3600, 1, "o", "MarkerSize", 8, "LineWidth", 1.5, "Color", [0.95 0.45 0.1], ...
+                    "MarkerFaceColor", "none", "HandleVisibility", "off");
+                st = sprintf("group %d: in band from %s (%.0f Wh)", g, hm(ct), app.conv.convWh(g, p));
+                if ~isnan(lt), st = st + sprintf(", left %s", hm(lt)); end
+            else
+                st = sprintf("group %d: not yet within 1 %% for 10 min", g);
+            end
+            nConv = sum(~isnan(app.conv.convT(:, p))); nLeft = sum(~isnan(app.conv.leftT(:, p)));
+            subtitle(ax, st + sprintf("  |  %d/13 groups reached the band, %d later left it", nConv, nLeft), "FontSize", 9);
+            if p == 1, legend(ax, "Location", "southwest", "FontSize", 8, "NumColumns", 2); end
+            hold(ax, "off");
         end
 
         function C = clockData(app)
@@ -389,4 +440,20 @@ end
 
 function y = ifelse(c, a, b)
 if c, y = a; else, y = b; end
+end
+
+function shadePhases(ax, th, mode, inLegend)
+% phase strip along the top of the axes: grey = rest, green = charge, none = discharge
+if isempty(mode), return, end
+col = {[0.55 0.55 0.55], [0.35 0.75 0.35]}; nmz = ["rest" "charge"];
+for c = 1:2
+    if c == 1, on = ismember(mode, [0 2 4]); else, on = mode == 3; end
+    d = diff([0; on(:); 0]); s0 = find(d == 1); s1 = find(d == -1) - 1;
+    for j = 1:numel(s0)
+        x0 = th(s0(j)); x1 = th(min(s1(j) + 1, numel(th)));
+        h = patch(ax, [x0 x1 x1 x0], [16 16 30 30], col{c}, "FaceAlpha", 0.7, "EdgeColor", "none", ...
+            "DisplayName", nmz(c));
+        if j > 1 || ~inLegend, h.HandleVisibility = "off"; end
+    end
+end
 end
