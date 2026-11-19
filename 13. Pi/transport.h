@@ -20,4 +20,6 @@ int tp_read(const struct device *dev, uint8_t reg, uint8_t *data, size_t n);
  * I2C: returns 0 (the chip is read directly). */
 double tp_poll(void);
 int tp_is_sitl(void);
+/* SITL: emulator time of the newest snapshot, ms (wraps at 2^32); 0 if none. I2C: 0. */
+uint32_t tp_chip_time_ms(void);
 #endif

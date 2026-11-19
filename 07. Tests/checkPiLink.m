@@ -37,15 +37,20 @@ function runCheck()
     fprintf("   first fresh+valid advisory at %.1f s; after that fresh %.1f %%, valid %.1f %%; cycles missed (Pi) %g\n", ...
         t(k0), 100*mean(fresh(ok)), 100*mean(valid(ok)), adv.framesMissed.Data(end));
     pass = pass && mean(fresh(ok)) > 0.99 && mean(valid(ok)) > 0.99;
-    % the Pi's view of the chip vs the emulator / plant (at the advisory times)
-    tt = tr.iPack.Time;  iTrue = interp1(tt, tr.iPack.Data(:), t(ok), "previous");
-    vTrue = interp1(tt, sum(tr.vGroup.Data, 2), t(ok), "previous");
-    dI = max(abs(adv.iPack.Data(ok) - iTrue));  dV = max(abs(adv.vStack.Data(ok) - vTrue));
+    % the Pi's view of the chip vs the plant: each advisory sample reports a chip reading taken up
+    % to ~0.3 s (simulated) earlier (Pi cycle 0.1 s + advisory period 0.1 s + link), so it is
+    % compared with the plant over [t - 0.3 s, t] (closest value in that window)
+    tt = tr.iPack.Time;  iT = tr.iPack.Data(:);  vT = sum(rows(tr.vGroup), 2);
+    ta = t(ok);  iA = adv.iPack.Data(ok);  vA = adv.vStack.Data(ok);  dI = 0;  dV = 0;
+    for j = 1:numel(ta)
+        w = tt >= ta(j) - 0.3 & tt <= ta(j);
+        dI = max(dI, min(abs(iT(w) - iA(j))));  dV = max(dV, min(abs(vT(w) - vA(j))));
+    end
     fets = unique(adv.fetStatus.Data(ok))';
-    fprintf("   Pi's view of the chip: max |I - true| %.3f A, max |Vstack - true| %.3f V (CAN 0.01 A / 0.01 V + one cycle of lag), FET status %s\n", dI, dV, mat2str(fets));
-    pass = pass && isequal(fets, 5) && dV < 0.05;
+    fprintf("   Pi's view of the chip: max |I - plant| %.3f A, max |Vstack - plant| %.3f V (limits 0.02 A, 0.05 V: chip and CAN resolution), FET status %s\n", dI, dV, mat2str(fets));
+    pass = pass && isequal(fets, 5) && dI <= 0.02 && dV <= 0.05;
     % SOC: offset at start, tracking over the run
-    sP = adv.socGroup.Data(ok, :);  sT = interp1(tr.socGroup.Time, tr.socGroup.Data, t(ok), "previous");
+    sP = adv.socGroup.Data(ok, :);  sT = interp1(tr.socGroup.Time, rows(tr.socGroup), t(ok), "previous");
     off0 = sP(1, :) - sT(1, :);  dP = sP(end, :) - sP(1, :);  dT = sT(end, :) - sT(1, :);
     fprintf("   SOC offset at start (OCV under load) %.2f..%.2f %%; change over the run: Pi %.3f %%, true %.3f %%, max |diff| %.3f %% (limit 0.05 %%)\n", ...
         100*min(off0), 100*max(off0), 100*mean(dP), 100*mean(dT), 100*max(abs(dP - dT)));
@@ -65,6 +70,11 @@ function runCheck()
     fprintf("\n=== 2. COV on group 5\n   emulator CHG off at %.2f s; Pi reports COV + CHG off at %.2f s; discharge current at end (Pi) %.2f A\n", tChip, tPi, iEnd);
     pass = pass && ~isnan(tPi) && tPi - tChip < 1.0 && iEnd > 20;
     fprintf("\nOverall: %s\n", string(ifelse(pass, "PASS", "FAIL")));
+end
+function d = rows(ts)
+    % logged vector signal as time x elements (the plant logs 13 x 1 x N)
+    d = ts.Data;
+    if ndims(d) == 3, d = permute(d, [3 1 2]); end
 end
 function setLink(dd, e, v)
     p = getValue(e);  p.Value = v;  setValue(e, p);  saveChanges(dd);

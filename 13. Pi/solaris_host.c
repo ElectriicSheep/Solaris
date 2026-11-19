@@ -19,6 +19,10 @@
  *   --record FILE   SOC record file (default soc_record.txt)
  *   --quiet         no console output except events
  *
+ * Timing: one cycle (read chip, estimator step, ADV out) per 100 ms - of wall-clock time on real
+ * hardware, of EMULATOR time in SITL (snapshot time stamp), so the estimator integrates the same
+ * time as the simulation however fast or slow it runs.
+ *
  * I2C host protocol: Libre Solar bq769x2 interface layer (libresolar/, unmodified, Apache-2.0).
  */
 #define _DEFAULT_SOURCE 1
@@ -322,12 +326,37 @@ int main(int argc, char **argv) {
     int awake = 0, identified = 0, prevMethod = 0;
     meas_t m, prev; memset(&m, 0, sizeof m); memset(&prev, 0, sizeof prev);
     double tLast = -1, tSave = now_s(), tPrint = 0, tNext = now_s();
+    uint32_t chipLast = 0;  int chipStarted = 0;
     while (g_run) {
         double t = now_s();
-        if (t < tNext) { usleep((useconds_t)((tNext - t) * 1e6)); continue; }
-        tNext += PERIOD_S;
-        if (t - tNext > 1.0) tNext = t + PERIOD_S;                       /* fell behind: resync */
-        double age = tp_poll();
+        double age;
+        if (tp_is_sitl()) {
+            /* SITL: one cycle per 100 ms of EMULATOR time (the simulation may run slower or faster
+             * than real time); while the emulator is silent, wall-clock cycles report it stale */
+            age = tp_poll();
+            uint32_t ct = tp_chip_time_ms();
+            int fresh = age >= 0 && age < T_STALE_S;
+            if (fresh) {
+                uint32_t d = ct - chipLast;                       /* ms since the last cycle */
+                if (chipStarted && (int32_t)d < 0) chipStarted = 0;           /* emulator restarted */
+                if (!chipStarted) { chipLast = ct; chipStarted = 1; }
+                else {
+                    const uint32_t per = (uint32_t)lround(PERIOD_S * 1000);
+                    if (d < per) { usleep(2000); continue; }
+                    uint32_t n = d / per;
+                    if (awake && n > 1) g_missed += n - 1;
+                    chipLast += n * per;
+                }
+            } else {
+                if (t < tNext) { usleep((useconds_t)((tNext - t) * 1e6)); continue; }
+                tNext = t + PERIOD_S;
+            }
+        } else {
+            if (t < tNext) { usleep((useconds_t)((tNext - t) * 1e6)); continue; }
+            tNext += PERIOD_S;
+            if (t - tNext > 1.0) tNext = t + PERIOD_S;                   /* fell behind: resync */
+            age = tp_poll();
+        }
         int alive = tp_is_sitl() ? (age >= 0 && age < T_STALE_S) : 1;
         int ok = alive && (identified || chip_identify() == 0);
         if (ok && !identified) {
@@ -339,7 +368,7 @@ int main(int argc, char **argv) {
         if (ok) {
             int boot = !awake;
             if (boot) printf("[%10.1f] BQ76952 answering: start-up\n", t);
-            if (awake && tLast > 0 && t - tLast > 1.5 * PERIOD_S) {
+            if (!tp_is_sitl() && awake && tLast > 0 && t - tLast > 1.5 * PERIOD_S) {
                 g_missed += (unsigned)lround((t - tLast) / PERIOD_S) - 1;
                 if (bq_log_level >= 3) printf("[%10.1f] cycle gap %.3f s\n", t, t - tLast);
             }

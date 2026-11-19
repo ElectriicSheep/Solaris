@@ -25,6 +25,8 @@ static uint32_t g_seq = 0;
 static double now_s(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + 1e-9 * t.tv_nsec; }
 void bq_usleep(int us) { if (!g_sitl && us > 0) usleep((useconds_t)us); }
 int tp_is_sitl(void) { return g_sitl; }
+static uint32_t u32(const uint8_t *p);
+uint32_t tp_chip_time_ms(void) { return (g_sitl && g_have) ? u32(g_snap + 12) : 0; }
 
 /* ---------- I2C ---------- */
 static uint8_t crc8(uint8_t crc, const uint8_t *d, size_t n) {   /* CRC-8 CCITT, poly 0x07 */

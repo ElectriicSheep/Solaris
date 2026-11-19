@@ -7,6 +7,8 @@
  *                         [--fault cov|cuv|ocd|otc --fault-at s --fault-for s]
  *   PI_HOST     where solaris_host runs (snapshots to PI_HOST:50010; writes in on :50011)
  *   --current   pack current, A, discharge positive (default 5)
+ *   --speed     simulation speed relative to real time (default 1; e.g. 0.5 = half speed, as a
+ *               slow Simulink run)
  */
 #define _DEFAULT_SOURCE 1
 #include "bq76952_emul.h"
@@ -32,13 +34,14 @@ static double ocv(double s) {
 static double now_s(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + 1e-9 * t.tv_nsec; }
 
 int main(int argc, char **argv) {
-    if (argc < 2) { fprintf(stderr, "usage: %s PI_HOST [--soc x] [--current A] [--duration s] [--fault cov|cuv|ocd|otc --fault-at s --fault-for s]\n", argv[0]); return 1; }
+    if (argc < 2) { fprintf(stderr, "usage: %s PI_HOST [--soc x] [--current A] [--duration s] [--speed x] [--fault cov|cuv|ocd|otc --fault-at s --fault-for s]\n", argv[0]); return 1; }
     const char *pi = argv[1], *fault = NULL;
-    double soc0 = 0.8, iDis = 5, dur = 1e9, fAt = 10, fFor = 5;
+    double soc0 = 0.8, iDis = 5, dur = 1e9, fAt = 10, fFor = 5, speed = 1;
     for (int a = 2; a < argc; a++) {
         if (!strcmp(argv[a], "--soc") && a + 1 < argc) soc0 = atof(argv[++a]);
         else if (!strcmp(argv[a], "--current") && a + 1 < argc) iDis = atof(argv[++a]);
         else if (!strcmp(argv[a], "--duration") && a + 1 < argc) dur = atof(argv[++a]);
+        else if (!strcmp(argv[a], "--speed") && a + 1 < argc) speed = atof(argv[++a]);
         else if (!strcmp(argv[a], "--fault") && a + 1 < argc) fault = argv[++a];
         else if (!strcmp(argv[a], "--fault-at") && a + 1 < argc) fAt = atof(argv[++a]);
         else if (!strcmp(argv[a], "--fault-for") && a + 1 < argc) fFor = atof(argv[++a]);
@@ -85,7 +88,7 @@ int main(int argc, char **argv) {
         uint8_t f = (uint8_t)(fet[0] | fet[1] << 1);
         if (f != lastFet) { printf("[%7.2f s] emulator FETs: CHG %d DSG %d  (I %.1f A)\n", t, fet[0], fet[1], i); lastFet = f; }
         t += dt;
-        double wait = t0 + t - now_s();
+        double wait = t0 + t / speed - now_s();
         if (wait > 0) usleep((useconds_t)(wait * 1e6));
     }
     return 0;
