@@ -26,16 +26,14 @@ vD = rows(tr.vGroup);  zD = rows(tr.socGroup);  tC = rows(tr.tCell) - 273.15;
 save(fullfile(work, "checkFastPlant_detailed.mat"), "t", "iP", "vD", "zD", "tC");
 
 %% 2. fast plant, same current
-ECM = ecmParams();
-ECM.plant.soc0 = zD(1, :)';
-ECM.plant.T0C  = mean(tC(1, :));
+% the detailed plant has no temperature dependence and no ageing: switch both off
+ECM = ecmParams(TempDep=false, Degradation=false, IC=struct("soc0", zD(1, :), "T0C", mean(tC(1, :))));
 assignin("base", "ECM", ECM);
 h = "ecmPlantCheck";
 if bdIsLoaded(h), close_system(h, 0); end
 new_system(h);
 load_system("ecmOffline");
 add_block("ecmOffline/PLANT", h + "/PLANT");
-set_param(h + "/PLANT/Iz", "InitialCondition", "ECM.plant.soc0(:)");
 iTs = timeseries(iP, t);
 assignin("base", "iCheck", iTs);
 add_block("simulink/Sources/From Workspace", h + "/i", "VariableName", "iCheck", "Interpolate", "off", ...
@@ -47,7 +45,7 @@ for k = 1:3
         "SaveFormat", "Array", "SampleTime", "ECM.Ts");
     add_line(h, "PLANT/" + k, "f_" + nm(k) + "/1");
 end
-for k = 4:7
+for k = 4:11
     add_block("simulink/Sinks/Terminator", h + "/term" + k);
     add_line(h, "PLANT/" + k, "term" + k + "/1");
 end

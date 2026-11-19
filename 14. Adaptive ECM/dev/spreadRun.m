@@ -17,17 +17,18 @@ for k = 1:3
     M.(nm(k) + "_first_p95") = prctile(E(first, :), 95, "all");
     M.(nm(k) + "_late_p95")  = prctile(E(late, :), 95, "all");
     % table at the operating temperature, all SOC points incl. never-visited 0 and 100 %
-    X = L.(tb(k)); Tr = ECM.truth.(nm(k)); e = zeros(11, 13);
+    X = L.(tb(k)); Tr = ecmTruthNow(ECM, L.sohr(end, :), nm(k)); e = zeros(11, 13);
     for g = 1:13
         est = interp1(ECM.est.tBpC, X(:, :, g)', Tm)';
-        e(:, g) = 100 * (est - Tr(:, 1, g)) ./ Tr(:, 1, g);
+        tru = interp1(ECM.est.tBpC, Tr(:, :, g)', Tm)';
+        e(:, g) = 100 * (est - tru) ./ tru;
     end
     M.(nm(k) + "_tab_med") = median(abs(e), "all");
     M.(nm(k) + "_tab_p90") = prctile(abs(e(:)), 90);
     M.(nm(k) + "_tab_end") = median(abs(e([1 11], :)), "all");      % SOC 0 and 100 % (not visited)
     % whole table (all temperature columns), vs start
     S0 = abs(ECM.est.initErrTable.(nm(k))) * 100;
-    M.(nm(k) + "_all_med") = median(abs(X - ECM.truth.(nm(k))) ./ ECM.truth.(nm(k)) * 100, "all");
+    M.(nm(k) + "_all_med") = median(abs(X - Tr) ./ Tr * 100, "all");
     M.(nm(k) + "_all_start") = median(S0, "all");
 end
 M.nConv = sum(~isnan(R.conv.convT));

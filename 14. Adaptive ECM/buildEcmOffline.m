@@ -53,6 +53,14 @@ add_line(L, "iChg/1", "select/5", "autorouting", "on");
 add_line(L, "zero/1", "select/6", "autorouting", "on");
 add_block("simulink/Sinks/Out1", L + "/i", "Position", [760 170 790 184]);
 add_block("simulink/Sinks/Out1", L + "/mode", "Position", [760 230 790 244]);
+add_block("simulink/Sinks/Out1", L + "/cycle", "Position", [760 290 790 304]);
+add_line(L, "schedule/3", "cycle/1", "autorouting", "on");
+% stop after ECM.load.nCycles schedule cycles
+add_block("simulink/Sources/Constant", L + "/nCycles", "Value", "ECM.load.nCycles", "SampleTime", "inf", "Position", [660 340 720 360]);
+add_block("simulink/Logic and Bit Operations/Relational Operator", L + "/done", "Operator", ">", "Position", [760 330 790 360]);
+add_block("simulink/Sinks/Stop Simulation", L + "/stop", "Position", [830 330 860 360]);
+add_line(L, "schedule/3", "done/1", "autorouting", "on"); add_line(L, "nCycles/1", "done/2", "autorouting", "on");
+add_line(L, "done/1", "stop/1", "autorouting", "on");
 add_line(L, "select/1", "i/1", "autorouting", "on");
 add_line(L, "schedule/1", "mode/1", "autorouting", "on");
 
@@ -61,8 +69,9 @@ Pp = mdl + "/PLANT";
 add_block("simulink/Ports & Subsystems/Subsystem", Pp, "Position", [320 60 480 260]);
 delete_line(Pp, "In1/1", "Out1/1"); delete_block(Pp + "/In1"); delete_block(Pp + "/Out1");
 add_block("simulink/Sources/In1", Pp + "/i", "Position", [20 200 50 214]);
-integ = ["Iz" "ECM.plant.soc0*ones(13,1)"; "Iv1" "zeros(13,1)"; "IT" "ECM.plant.T0C*ones(13,1)"; "IWh" "zeros(13,1)"];
-for k = 1:4
+integ = ["Iz" "ECM.plant.soc0(:)"; "Iv1" "zeros(13,1)"; "IT" "ECM.plant.T0C(:)"; "IWh" "zeros(13,1)"; ...
+         "IEfc" "ECM.plant.efc0(:)"; "IL" "ECM.plant.L0(:)"; "IG" "ECM.plant.G0(:)"];
+for k = 1:size(integ, 1)
     add_block("simulink/Continuous/Integrator", Pp + "/" + integ(k,1), "InitialCondition", integ(k,2), ...
         "Position", [900 40+120*(k-1) 940 80+120*(k-1)]);
 end
@@ -79,22 +88,68 @@ for k = 1:4
     add_line(Pp, "IT/1", "LUT_" + lut(k) + "/2", "autorouting", "on");
     add_line(Pp, "gIdx/1", "LUT_" + lut(k) + "/3", "autorouting", "on");
 end
+% ageing: R = R_new (1 + G), Q = Q_new (1 - L)
+add_block("simulink/Math Operations/Bias", Pp + "/onePlusG", "Bias", "1");
+add_line(Pp, "IG/1", "onePlusG/1", "autorouting", "on");
+add_block("simulink/Math Operations/Product", Pp + "/r0a", "Inputs", "2");
+add_block("simulink/Math Operations/Product", Pp + "/r1a", "Inputs", "2");
+add_line(Pp, "LUT_r0/1", "r0a/1", "autorouting", "on"); add_line(Pp, "onePlusG/1", "r0a/2", "autorouting", "on");
+add_line(Pp, "LUT_r1/1", "r1a/1", "autorouting", "on"); add_line(Pp, "onePlusG/1", "r1a/2", "autorouting", "on");
+add_block("simulink/Math Operations/Gain", Pp + "/negL", "Gain", "-1");
+add_block("simulink/Math Operations/Bias", Pp + "/sohqB", "Bias", "1");
+add_line(Pp, "IL/1", "negL/1", "autorouting", "on"); add_line(Pp, "negL/1", "sohqB/1", "autorouting", "on");
+add_block("simulink/Math Operations/Gain", Pp + "/QnowB", "Gain", "ECM.plant.Qnew(:)", "Multiplication", "Element-wise(K.*u)");
+add_line(Pp, "sohqB/1", "QnowB/1", "autorouting", "on");
+add_block("simulink/Math Operations/Math Function", Pp + "/sohrB", "Operator", "reciprocal");
+add_line(Pp, "onePlusG/1", "sohrB/1", "autorouting", "on");
 % dz = -i/(3600 Q)
-add_block("simulink/Math Operations/Gain", Pp + "/kz", "Gain", "-1./(3600*ECM.plant.Q(:))", ...
-    "Multiplication", "Element-wise(K.*u)", "Position", [700 40 760 80]);
-add_line(Pp, "i/1", "kz/1", "autorouting", "on");  add_line(Pp, "kz/1", "Iz/1", "autorouting", "on");
+add_block("simulink/Math Operations/Product", Pp + "/iOverQ", "Inputs", "*/");
+add_line(Pp, "i/1", "iOverQ/1", "autorouting", "on"); add_line(Pp, "QnowB/1", "iOverQ/2", "autorouting", "on");
+add_block("simulink/Math Operations/Gain", Pp + "/kz", "Gain", "-1/3600", "Position", [700 40 760 80]);
+add_line(Pp, "iOverQ/1", "kz/1", "autorouting", "on");  add_line(Pp, "kz/1", "Iz/1", "autorouting", "on");
+% EFC rate = |i| / (2 * 3600 * Q_new)
+add_block("simulink/Math Operations/Abs", Pp + "/absI");
+add_line(Pp, "i/1", "absI/1", "autorouting", "on");
+add_block("simulink/Math Operations/Gain", Pp + "/kEfc", "Gain", "1./(2*3600*ECM.plant.Qnew(:))", "Multiplication", "Element-wise(K.*u)");
+add_line(Pp, "absI/1", "kEfc/1", "autorouting", "on"); add_line(Pp, "kEfc/1", "IEfc/1", "autorouting", "on");
+% Arrhenius factors: exp(Ea/Rg (1/Tref - 1/T)), T in K
+add_block("simulink/Math Operations/Bias", Pp + "/TK", "Bias", "273.15");
+add_line(Pp, "IT/1", "TK/1", "autorouting", "on");
+add_block("simulink/Math Operations/Math Function", Pp + "/invT", "Operator", "reciprocal");
+add_line(Pp, "TK/1", "invT/1", "autorouting", "on");
+for a = ["Cyc" "Cal"]
+    add_block("simulink/Math Operations/Bias", Pp + "/dInv" + a, "Bias", "-1/(ECM.plant.Tref + 273.15)");
+    add_block("simulink/Math Operations/Gain", Pp + "/kAF" + a, "Gain", "-ECM.deg.Ea" + a + "/8.314");
+    add_block("simulink/Math Operations/Math Function", Pp + "/AF" + a, "Operator", "exp");
+    add_line(Pp, "invT/1", "dInv" + a + "/1", "autorouting", "on");
+    add_line(Pp, "dInv" + a + "/1", "kAF" + a + "/1", "autorouting", "on");
+    add_line(Pp, "kAF" + a + "/1", "AF" + a + "/1", "autorouting", "on");
+end
+% dL = on (kQcyc AFcyc dEFC + kQcal AFcal), dG likewise
+add_block("simulink/Math Operations/Product", Pp + "/cycRate", "Inputs", "2");
+add_line(Pp, "kEfc/1", "cycRate/1", "autorouting", "on"); add_line(Pp, "AFCyc/1", "cycRate/2", "autorouting", "on");
+for q = ["Q" "R"]
+    add_block("simulink/Math Operations/Gain", Pp + "/k" + q + "cyc", "Gain", "ECM.deg.on*ECM.deg.k" + q + "cyc");
+    add_block("simulink/Math Operations/Gain", Pp + "/k" + q + "cal", "Gain", "ECM.deg.on*ECM.deg.k" + q + "cal");
+    add_block("simulink/Math Operations/Sum", Pp + "/d" + q, "Inputs", "++");
+    add_line(Pp, "cycRate/1", "k" + q + "cyc/1", "autorouting", "on");
+    add_line(Pp, "AFCal/1", "k" + q + "cal/1", "autorouting", "on");
+    add_line(Pp, "k" + q + "cyc/1", "d" + q + "/1", "autorouting", "on");
+    add_line(Pp, "k" + q + "cal/1", "d" + q + "/2", "autorouting", "on");
+end
+add_line(Pp, "dQ/1", "IL/1", "autorouting", "on"); add_line(Pp, "dR/1", "IG/1", "autorouting", "on");
 % dv1 = (R1 i - v1)/tau
 add_block("simulink/Math Operations/Product", Pp + "/R1i", "Inputs", "2", "Position", [400 150 430 190]);
 add_block("simulink/Math Operations/Sum", Pp + "/sv1", "Inputs", "+-", "Position", [480 150 510 190]);
 add_block("simulink/Math Operations/Product", Pp + "/dv1", "Inputs", "*/", "Position", [560 150 590 190]);
-add_line(Pp, "LUT_r1/1", "R1i/1", "autorouting", "on"); add_line(Pp, "i/1", "R1i/2", "autorouting", "on");
+add_line(Pp, "r1a/1", "R1i/1", "autorouting", "on"); add_line(Pp, "i/1", "R1i/2", "autorouting", "on");
 add_line(Pp, "R1i/1", "sv1/1", "autorouting", "on"); add_line(Pp, "Iv1/1", "sv1/2", "autorouting", "on");
 add_line(Pp, "sv1/1", "dv1/1", "autorouting", "on"); add_line(Pp, "LUT_tau/1", "dv1/2", "autorouting", "on");
 add_line(Pp, "dv1/1", "Iv1/1", "autorouting", "on");
 % v = ocv - v1 - R0 i
 add_block("simulink/Math Operations/Product", Pp + "/R0i", "Inputs", "2", "Position", [400 250 430 290]);
 add_block("simulink/Math Operations/Sum", Pp + "/sv", "Inputs", "+--", "Position", [480 230 510 290]);
-add_line(Pp, "LUT_r0/1", "R0i/1", "autorouting", "on"); add_line(Pp, "i/1", "R0i/2", "autorouting", "on");
+add_line(Pp, "r0a/1", "R0i/1", "autorouting", "on"); add_line(Pp, "i/1", "R0i/2", "autorouting", "on");
 add_line(Pp, "LUT_ocv/1", "sv/1", "autorouting", "on"); add_line(Pp, "Iv1/1", "sv/2", "autorouting", "on");
 add_line(Pp, "R0i/1", "sv/3", "autorouting", "on");
 % dT = (i^2 R0 + v1^2/R1 - (T - Tamb)/Rth)/Cth
@@ -107,9 +162,9 @@ add_block("simulink/Math Operations/Sum", Pp + "/sq", "Inputs", "++-", "Position
 add_block("simulink/Math Operations/Gain", Pp + "/gCth", "Gain", "1./ECM.plant.Cth(:)", ...
     "Multiplication", "Element-wise(K.*u)", "Position", [640 390 700 430]);
 add_line(Pp, "i/1", "q0/1", "autorouting", "on"); add_line(Pp, "i/1", "q0/2", "autorouting", "on");
-add_line(Pp, "LUT_r0/1", "q0/3", "autorouting", "on");
+add_line(Pp, "r0a/1", "q0/3", "autorouting", "on");
 add_line(Pp, "Iv1/1", "q1/1", "autorouting", "on"); add_line(Pp, "Iv1/1", "q1/2", "autorouting", "on");
-add_line(Pp, "LUT_r1/1", "q1/3", "autorouting", "on");
+add_line(Pp, "r1a/1", "q1/3", "autorouting", "on");
 add_line(Pp, "IT/1", "dTa/1", "autorouting", "on"); add_line(Pp, "dTa/1", "gRth/1", "autorouting", "on");
 add_line(Pp, "q0/1", "sq/1", "autorouting", "on"); add_line(Pp, "q1/1", "sq/2", "autorouting", "on");
 add_line(Pp, "gRth/1", "sq/3", "autorouting", "on"); add_line(Pp, "sq/1", "gCth/1", "autorouting", "on");
@@ -121,7 +176,8 @@ add_block("simulink/Math Operations/Gain", Pp + "/toWh", "Gain", "1/3600", "Posi
 add_line(Pp, "sv/1", "p/1", "autorouting", "on"); add_line(Pp, "i/1", "p/2", "autorouting", "on");
 add_line(Pp, "p/1", "absP/1", "autorouting", "on"); add_line(Pp, "absP/1", "toWh/1", "autorouting", "on");
 add_line(Pp, "toWh/1", "IWh/1", "autorouting", "on");
-outs = ["v" "sv/1"; "z" "Iz/1"; "T" "IT/1"; "r0" "LUT_r0/1"; "r1" "LUT_r1/1"; "tau" "LUT_tau/1"; "Wh" "IWh/1"];
+outs = ["v" "sv/1"; "z" "Iz/1"; "T" "IT/1"; "r0" "r0a/1"; "r1" "r1a/1"; "tau" "LUT_tau/1"; "Wh" "IWh/1"; ...
+        "Q" "QnowB/1"; "sohq" "sohqB/1"; "sohr" "sohrB/1"; "efc" "IEfc/1"];
 for k = 1:size(outs, 1)
     add_block("simulink/Sinks/Out1", Pp + "/" + outs(k,1), "Position", [1000 40+50*k 1030 54+50*k]);
     add_line(Pp, outs(k,2), outs(k,1) + "/1", "autorouting", "on");
@@ -181,8 +237,8 @@ for k = 1:3
     add_line(mdl, fb(k,1) + "/1", "d_" + fb(k,1) + "/1", "autorouting", "on");
     add_line(mdl, "d_" + fb(k,1) + "/1", "LOAD/" + fb(k,4), "autorouting", "on");
 end
-set_param(mdl + "/d_zMin", "InitialCondition", "ECM.plant.soc0");
-set_param(mdl + "/d_zMax", "InitialCondition", "ECM.plant.soc0");
+set_param(mdl + "/d_zMin", "InitialCondition", "min(ECM.plant.soc0)");
+set_param(mdl + "/d_zMax", "InitialCondition", "max(ECM.plant.soc0)");
 
 %% Estimator
 add_block("simulink/Ports & Subsystems/Subsystem Reference", mdl + "/EST", "ReferencedSubsystem", "adaptiveEcm", ...
@@ -193,8 +249,11 @@ add_line(mdl, "SENSOR/3", "EST/3", "autorouting", "on");
 
 %% Logging at ECM.TsLog (To Workspace, arrays)
 logTruth = ["t_z" "PLANT/2"; "t_v" "PLANT/1"; "t_T" "PLANT/3"; "t_r0" "PLANT/4"; "t_r1" "PLANT/5"; ...
-            "t_tau" "PLANT/6"; "t_Wh" "PLANT/7"; "t_i" "LOAD/1"; "t_mode" "LOAD/2"];
+            "t_tau" "PLANT/6"; "t_Wh" "PLANT/7"; "t_i" "LOAD/1"; "t_mode" "LOAD/2"; "t_cycle" "LOAD/3"; ...
+            "t_Q" "PLANT/8"; "t_sohq" "PLANT/9"; "t_sohr" "PLANT/10"; "t_efc" "PLANT/11"];
+add_block("simulink/Sources/Clock", mdl + "/clock", "Position", [700 950 730 980]);
 for k = 1:size(logTruth, 1), addLog(mdl, logTruth(k,1), logTruth(k,2), [300 400+40*k]); end
+addLog(mdl, "t_time", "clock/1", [300 1000]);       % exact sample times (runs continued from an operating point)
 logEst = ["e_zh" "e_v1h" "e_r0" "e_r1" "e_tau" "e_Q" "e_r0Rls" "e_r1Rls" "e_tauRls"];
 for k = 1:numel(logEst), addLog(mdl, logEst(k), "EST/" + k, [700 400+40*k]); end
 % tables and counts: last value only
@@ -234,8 +293,8 @@ ins = ["zMin" "zMax" "vMax" "socLow" "socHigh" "vLim" "tRest0" "tRest"];
 for k = 1:numel(ins)
     d = Stateflow.Data(ch); d.Name = ins(k); d.Scope = "Input"; d.Port = k;
 end
-outs = ["mode" "k"];
-for k = 1:2
+outs = ["mode" "k" "cycle"];
+for k = 1:3
     d = Stateflow.Data(ch); d.Name = outs(k); d.Scope = "Output"; d.Port = k; d.Props.InitialValue = "0";
 end
 specs = { ...
@@ -250,11 +309,11 @@ for k = 1:size(specs, 1)
 end
 t0 = Stateflow.Transition(ch); t0.Destination = S("REST0"); t0.DestinationOClock = 0;
 t0.SourceEndpoint = t0.DestinationEndpoint - [0 30]; t0.Midpoint = t0.DestinationEndpoint - [0 15];
-tr = ["REST0" "DIS"  "after(tRest0,sec)"; ...
+tr = ["REST0" "DIS"  "after(tRest0,sec){cycle = 1;}"; ...
       "DIS"   "REST" "[zMin <= socLow]"; ...
       "REST"  "CHG"  "after(tRest,sec)"; ...
       "CHG"   "REST2" "[zMax >= socHigh || vMax >= vLim]"; ...
-      "REST2" "DIS"  "after(tRest,sec)"];
+      "REST2" "DIS"  "after(tRest,sec){cycle = cycle + 1;}"];
 for k = 1:size(tr, 1)
     t = Stateflow.Transition(ch); t.Source = S(tr(k,1)); t.Destination = S(tr(k,2)); t.LabelString = tr(k,3);
 end

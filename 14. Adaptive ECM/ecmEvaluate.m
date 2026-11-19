@@ -6,7 +6,7 @@ function R = ecmEvaluate(L, P, minCount)
 % updated (weighted count >= minCount, default 100) against the true node values.
 if nargin < 3, minCount = 100; end
 E = cat(3, (L.r0e - L.r0) ./ L.r0, (L.r1e - L.r1) ./ L.r1, (L.taue - L.tau) ./ L.tau, ...
-    (L.Qe - P.plant.Q) ./ P.plant.Q);
+    (L.Qe - L.Q) ./ L.Q);
 c = ecmConvergence(0.01, 600);
 c.add(L.t, E, L.Wh);
 R.conv = c;
@@ -16,7 +16,8 @@ md = @(D) reshape(median(D, [1 2]), 1, []);   % median over the table, per group
 R.initErr_pct = 100 * [md(P.est.initErrTable.r0); md(P.est.initErrTable.r1); md(P.est.initErrTable.tau); P.est.initErr.Q]';
 nm = ["r0" "r1" "tau"]; tb = ["tabR0" "tabR1" "tabTau"]; cn = ["cntR0" "cntR1" "cntTau"];
 for k = 1:3
-    e = 100 * (L.(tb(k)) - P.truth.(nm(k))) ./ P.truth.(nm(k));
+    Tn = ecmTruthNow(P, L.sohr(end, :), nm(k));
+    e = 100 * (L.(tb(k)) - Tn) ./ Tn;
     v = L.(cn(k)) >= minCount;
     R.nodes.(nm(k)) = struct("n", nnz(v), "medAbs", median(abs(e(v))), "p90Abs", prctile(abs(e(v)), 90), ...
         "maxAbs", max(abs(e(v))), "within1pct", mean(abs(e(v)) <= 1));

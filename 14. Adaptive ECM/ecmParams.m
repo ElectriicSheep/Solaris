@@ -43,6 +43,19 @@ function P = ecmParams(opts)
 %   LoadScale   multiplies the discharge load current (default 1)
 %   Spread      true: unvisited table points take the correction ratio of their
 %               visited neighbours when the tables are read (default true)
+%   IC          per-group initial conditions (struct, fields 1 x 13): soc0, sohq0,
+%               sohr0, T0C, cyc0 (equivalent full cycles), and tAmbC (scalar).
+%               Missing fields: defaults (0.95, 1, 1, 15 C, 0, 15 C). ecmIcFromCycles
+%               fills SOHq/SOHr from the cycle count with the degradation model.
+%   TempDep     placeholder Arrhenius temperature dependence of R0, R1, tau1 (default true)
+%   Degradation placeholder ageing: capacity fade and resistance growth with charge
+%               throughput and time, Arrhenius in temperature (default true)
+%   ErrBase     "current": estimator starts from the true values at the start
+%               (incl. the set SOH) x (1 + d); "new": from new-cell values x (1 + d)
+%   NCycles     stop after this many schedule cycles (default inf)
+%
+% SOH definitions: SOHq = Q / Q_new, SOHr = R_new / R (both 1 when new, falling).
+% End of life: SOHq = 0.7.
 
 arguments
     opts.Seed (1,1) double = 1
@@ -51,9 +64,14 @@ arguments
     opts.InitTables = []
     opts.PlantSeed (1,1) double = 1
     opts.ErrShape (1,1) string {mustBeMember(opts.ErrShape, ["group" "smooth" "node"])} = "group"
-    opts.Profile (1,1) string {mustBeMember(opts.Profile, ["cycleA" "sample3"])} = "cycleA"
+    opts.Profile (1,1) string {mustBeMember(opts.Profile, ["cycleA" "ideal"])} = "cycleA"
     opts.LoadScale (1,1) double = 1
     opts.Spread (1,1) logical = true
+    opts.IC = []                       % struct: soc0, sohq0, sohr0, T0C, cyc0 (1 x 13), tAmbC
+    opts.TempDep (1,1) logical = true  % temperature dependence of R0, R1, tau1 (placeholder Arrhenius)
+    opts.Degradation (1,1) logical = true
+    opts.ErrBase (1,1) string {mustBeMember(opts.ErrBase, ["current" "new"])} = "current"
+    opts.NCycles (1,1) double = inf    % stop after this many schedule cycles
 end
 
 here = fileparts(mfilename("fullpath"));
@@ -98,13 +116,55 @@ for m = 1:numel(batMod)
     end
 end
 
+% Temperature dependence (PLACEHOLDER): the cell tables are taken as 25 C values and
+% scaled by exp(Ea/Rg * (1/T - 1/Tref)) on a 10 C grid. Ea: R0 15, R1 30, tau1 10 kJ/mol.
+% OCV and capacity: no temperature dependence.
+P.plant.tempDep = opts.TempDep;
+P.plant.Ea = struct("r0", 15e3, "r1", 30e3, "tau", 10e3);  P.plant.Tref = 25;
+tBpC = -10:10:60;
+arr = @(Ea, TC) exp(Ea / 8.314 * (1 ./ (TC + 273.15) - 1 / (P.plant.Tref + 273.15)));
+fT = @(nm) reshape(opts.TempDep * arr(P.plant.Ea.(nm), tBpC) + ~opts.TempDep * ones(size(tBpC)), 1, []);
+P.plant.arr = arr;
 P.plant.socBp = socBp;
-P.plant.tBpC  = tBpK - 273.15;
-P.plant.ocv = ocv;  P.plant.r0 = r0;  P.plant.r1 = r1;  P.plant.tau = tau;
+P.plant.tBpC  = tBpC;
+nTp = numel(tBpC);
+P.plant.ocv = repmat(ocv(:, 1, :), 1, nTp, 1);
+P.plant.r0  = r0(:, 1, :) .* fT("r0");
+P.plant.r1  = r1(:, 1, :) .* fT("r1");
+P.plant.tau = tau(:, 1, :) .* fT("tau");
+P.plant.Qnew = Q;
 P.plant.Q   = Q;    P.plant.Cth = Cth; P.plant.Rth = Rth;
-P.plant.tAmbC = 15;          % C, as PLANT_tAmbient (288.15 K)
-P.plant.soc0  = 0.95;        % start SOC (all groups)
-P.plant.T0C   = 15;          % C, start temperature
+
+% Degradation (PLACEHOLDER). States per group: equivalent full cycles (EFC = Ah
+% throughput / (2 Q_new)), capacity loss L (SOHq = 1 - L) and resistance growth G
+% (R = R_new (1 + G), SOHr = 1/(1 + G)). Rates at 25 C, Arrhenius in temperature:
+%   cycling   dL/dEFC = 0.3/600 (70 % after 600 EFC), dG/dEFC = 0.6/600 (+60 %)
+%   calendar  dL/dt = 2 %/year, dG/dt = 3 %/year
+% tau1 is not aged.
+D.on = opts.Degradation;
+D.eolSohq = 0.7;
+D.kQcyc = 0.3 / 600;  D.kRcyc = 0.6 / 600;
+D.kQcal = 0.02 / (365 * 86400);  D.kRcal = 0.03 / (365 * 86400);
+D.EaCyc = 20e3;  D.EaCal = 50e3;
+P.deg = D;
+
+% Initial conditions per group (defaults, then opts.IC)
+ic = struct("soc0", 0.95 * ones(1, P.nG), "sohq0", ones(1, P.nG), "sohr0", ones(1, P.nG), ...
+    "T0C", 15 * ones(1, P.nG), "cyc0", zeros(1, P.nG), "tAmbC", 15);
+if ~isempty(opts.IC)
+    for f = string(fieldnames(opts.IC))'
+        v = opts.IC.(f);
+        if f ~= "tAmbC" && isscalar(v), v = v * ones(1, P.nG); end
+        ic.(f) = reshape(v, 1, []);
+    end
+end
+P.ic = ic;
+P.plant.tAmbC = ic.tAmbC;
+P.plant.soc0  = ic.soc0;
+P.plant.T0C   = ic.T0C;
+P.plant.L0    = 1 - ic.sohq0;
+P.plant.G0    = 1 ./ ic.sohr0 - 1;
+P.plant.efc0  = ic.cyc0;
 P.plant.variation = cells.PLANT_variation;
 P.plant.cellSource = "bat_35E_13S7P_placeholder_params_hetero.m (SYNTHETIC PLACEHOLDER)";
 
@@ -126,15 +186,8 @@ switch opts.Profile
     case "cycleA"
         lp = load(fullfile(root, "01. LoadProfiles", "marineCycle_a.mat"), "marine_cycle").marine_cycle;
         prof = lp(2, :)';                                % A, pack, discharge positive, 0.1 s samples
-    case "sample3"
-        % 24 V system recording; time stamps irregular (~11 ms). Each 0.1 s step is the
-        % mean of the samples in it (as a current integrated over the step).
-        T = readtable(fullfile(root, "01. LoadProfiles", "24Vsample 3.csv"), "VariableNamingRule", "preserve");
-        t = seconds(T{:, 1} - T{1, 1});  i = T{:, 2};
-        nb = floor(t(end) / P.Ts);
-        b = min(floor(t / P.Ts) + 1, nb);
-        prof = accumarray(b, i, [nb 1], @mean, NaN);
-        prof = fillmissing(prof, "previous");
+    case "ideal"
+        prof = ecmIdealProfile(P.Ts);
 end
 P.load.profile = opts.LoadScale * prof;
 P.load.profileName = opts.Profile;  P.load.scale = opts.LoadScale;
@@ -145,6 +198,7 @@ P.load.socHigh = 0.95;       % end charge when the highest group reaches this
 P.load.vMax    = 4.20;       % V, or when any group reaches this voltage
 P.load.tRest0  = 600;        % s, rest at the start
 P.load.tRest   = 1800;       % s, rest after each discharge and charge
+P.load.nCycles = opts.NCycles;
 
 %% Estimator grid and OCV (nominal cell curve)
 P.est.socBp = socBp;
@@ -156,15 +210,19 @@ P.est.socOfOcv = socBp;                               % inverse table (OCV is mo
 dOcv = gradient(P.est.ocv, socBp);
 P.est.dOcv = dOcv;
 
-% True values on the estimator grid (for comparison; constant over temperature)
-tr.r0 = zeros(nS, nTe, P.nG); tr.r1 = tr.r0; tr.tau = tr.r0;
-for g = 1:P.nG
-    tr.r0(:,:,g)  = repmat(r0(:,1,g),  1, nTe);
-    tr.r1(:,:,g)  = repmat(r1(:,1,g),  1, nTe);
-    tr.tau(:,:,g) = repmat(tau(:,1,g), 1, nTe);
-end
+% True NEW-cell values on the estimator grid (for comparison). At a given time the
+% truth is r0, r1 x 1/SOHr(t) and Q x SOHq(t) (tau1 not aged).
+fTe = @(nm) reshape(opts.TempDep * arr(P.plant.Ea.(nm), P.est.tBpC) + ~opts.TempDep * ones(1, nTe), 1, []);
+tr.r0 = r0(:, 1, :) .* fTe("r0");
+tr.r1 = r1(:, 1, :) .* fTe("r1");
+tr.tau = tau(:, 1, :) .* fTe("tau");
 tr.Q = Q;
 P.truth = tr;
+% truth at the start (with the set SOH)
+g0 = reshape(1 + P.plant.G0, 1, 1, []);
+tr0.r0 = tr.r0 .* g0;  tr0.r1 = tr.r1 .* g0;  tr0.tau = tr.tau;  tr0.Q = Q .* (1 - P.plant.L0);
+P.truth0 = tr0;
+if opts.ErrBase == "new", base = tr; else, base = tr0; end
 
 % Initial errors (relative, d): capacity one per group; tables per opts.ErrShape
 s = RandStream("mt19937ar", "Seed", opts.Seed);
@@ -190,12 +248,12 @@ for nmE = ["r0" "r1" "tau"]
     end
     P.est.initErrTable.(nmE) = D;
 end
-P.est.seed = opts.Seed;  P.est.errRange = opts.ErrRange;  P.est.errShape = opts.ErrShape;
+P.est.seed = opts.Seed;  P.est.errRange = opts.ErrRange;  P.est.errShape = opts.ErrShape;  P.est.errBase = opts.ErrBase;
 if isempty(opts.InitTables)
-    P.est.init.r0  = tr.r0  .* (1 + P.est.initErrTable.r0);
-    P.est.init.r1  = tr.r1  .* (1 + P.est.initErrTable.r1);
-    P.est.init.tau = tr.tau .* (1 + P.est.initErrTable.tau);
-    P.est.init.Q   = Q .* (1 + P.est.initErr.Q);
+    P.est.init.r0  = base.r0  .* (1 + P.est.initErrTable.r0);
+    P.est.init.r1  = base.r1  .* (1 + P.est.initErrTable.r1);
+    P.est.init.tau = base.tau .* (1 + P.est.initErrTable.tau);
+    P.est.init.Q   = base.Q .* (1 + P.est.initErr.Q);
     P.est.init.count = zeros(nS, nTe, P.nG, 3);
     P.est.init.source = sprintf("true x (1 + d), |d| in [%g %g], shape %s, seed %d", opts.ErrRange, opts.ErrShape, opts.Seed);
 else
