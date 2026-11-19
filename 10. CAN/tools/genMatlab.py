@@ -1,9 +1,9 @@
-"""Generate bmsCanDb.m (MATLAB signal table) and canVectors.json (test vectors) from bmsCan.dbc.
-usage: python genMatlab.py bmsCan.dbc outDir"""
+"""Generate solarisCanDb.m (MATLAB signal table) and canVectors.json (test vectors) from solarisCan.dbc.
+usage: python genMatlab.py solarisCan.dbc outDir"""
 import sys, json, random, os
 import cantools
 db = cantools.database.load_file(sys.argv[1]); out = sys.argv[2]
-L = ["function S = bmsCanDb()", "%BMSCANDB  CAN signal table generated from bmsCan.dbc by tools/genMatlab.py - do not edit.",
+L = ["function S = solarisCanDb()", "%SOLARISCANDB  CAN signal table generated from solarisCan.dbc by tools/genMatlab.py - do not edit.",
      "%   S.<message>.id      frame identifier",
      "%   S.<message>.<signal> = [startBit length intel signed scale offset]",
      "%   startBit as in the DBC: Intel = least significant bit, Motorola = most significant bit.",
@@ -30,7 +30,7 @@ for (mn, fn), rows in fam.items():
     assert sorted(rows) == list(range(n)), (mn, fn)
     L.append(f"S.{mn}.{fn} = [" + "; ".join(rows[i] for i in range(n)) + "];")
 L.append("end")
-open(os.path.join(out, "bmsCanDb.m"), "w", newline="\r\n").write("\n".join(L) + "\n")
+open(os.path.join(out, "solarisCanDb.m"), "w", newline="\r\n").write("\n".join(L) + "\n")
 
 random.seed(1)
 vec = []

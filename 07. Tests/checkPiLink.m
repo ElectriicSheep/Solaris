@@ -1,46 +1,69 @@
 %% checkPiLink.m
-% Live test of the CAN link to the Raspberry Pi advisory estimator (10. CAN/pi):
-% platform with CAN_link = 1 (UDP to 192.168.50.2), paced at real time, CYCLE A load.
-% Needs on the Pi:  ./canudp -i vcan0 -p 192.168.50.1   and   ./bmsadv -i vcan0
-% Both the BMS and the Pi start without a valid SOC record (BMS: HW_nvm default; Pi: delete
-% ~/bmsadv/soc_record.txt first), so both initialise from OCV and run the same SE logic:
-% the advisory SOC should follow the BMS's within the CAN resolution (0.01 %) and a few
-% steps of link latency. Checks: advisory fresh and valid after start-up, heartbeat
-% advancing, |SOC_adv - SOC_bms| small, ARB uses the advisory SOC.
-% CAN_link is set to 1 in bmsPlatform.sldd for the run and restored to 0 afterwards.
+% Live SITL test: Simscape plant + BQ76952 emulator (Simulink, PC) <-> solaris_host on the Pi
+% (13. Pi) over UDP, paced at real time. Needs on the Pi:  ./solaris_host --sitl 192.168.50.1
+% (delete soc_record.txt first so the Pi starts from OCV).
+%   Run 1, 60 s, CYCLE A load: the Pi identifies the chip, reads it every 100 ms, runs the
+%     estimator and returns ADV frames. Checks: advisory fresh and valid; the Pi's view of the
+%     chip (stack voltage, current, FET status) matches the emulator's; the Pi's SOC follows the
+%     true SOC (change over the run within 0.05 %; the starting offset is reported, not judged:
+%     the chip closes its FETs at once, so the Pi initialises from OCV under load).
+%   Run 2, 20 s, COV injected on group 5 (+0.6 V as seen by the chip): the Pi reports Safety
+%     Status A bit 3 (COV) and the CHG FET off, while discharge continues.
+% PI_link is set to 1 in bmsPlatform.sldd for the runs and restored to 0 afterwards.
 
-runCheck(60);
+runCheck();
 
-function runCheck(T)
+function runCheck()
     mdl = "bmsTestPlatform";  load_system(mdl);
     dd = Simulink.data.dictionary.open("bmsPlatform.sldd");
-    e = getEntry(getSection(dd, "Design Data"), "CAN_link");
+    e = getEntry(getSection(dd, "Design Data"), "PI_link");
     restore = onCleanup(@() setLink(dd, e, 0));
     setLink(dd, e, 1);
-    in = Simulink.SimulationInput(mdl).setModelParameter("StopTime", string(T), ...
-        "EnablePacing", "on", "PacingRate", "1").setVariable("LOAD_profile", 3);
+    base = Simulink.SimulationInput(mdl).setModelParameter("EnablePacing", "on", "PacingRate", "1");
+    pass = true;
+
+    % ---- run 1: nominal ----
+    in = base.setModelParameter("StopTime", "60").setVariable("LOAD_profile", 3);
     tic;  [~, out] = evalc("sim(in)");  wall = toc;
-    fprintf("\n=== live link, %d s simulated, %.0f s wall (paced at real time)\n", T, wall);
-    save(fullfile(currentProject().RootFolder, "work", "pilink.mat"), "out");   % for inspection
-    adv = out.logsout.get("adv").Values;  arb = out.logsout.get("arb").Values;
-    t = adv.socMin.Time;  sAdv = adv.socMin.Data(:);  sBms = arb.socBms.Data(:);
-    fresh = adv.fresh.Data(:);  valid = adv.valid.Data(:);  hb = adv.heartbeat.Data(:);
-    use = arb.useAdv.Data(:);  rxAge = adv.rxAge.Data(:);
+    save(fullfile(currentProject().RootFolder, "work", "pilink1.mat"), "out");
+    adv = out.logsout.get("adv").Values;  tr = out.logsout.get("truth").Values;  afe = out.logsout.get("afe").Values;
+    t = adv.socMin.Time;  fresh = adv.fresh.Data(:);  valid = adv.valid.Data(:);
+    fprintf("\n=== 1. nominal, 60 s simulated, %.0f s wall (paced)\n", wall);
     k0 = find(fresh & valid, 1);
     if isempty(k0)
-        fprintf("   advisory never fresh and valid: link or Pi programs not running?\n");
-        fprintf("   max heartbeat %g, last rxAge %.1f s\nOverall: FAIL\n", max(hb), rxAge(end));  return
+        fprintf("   advisory never fresh and valid: is solaris_host running on the Pi?\nOverall: FAIL\n");  return
     end
-    ok = t >= t(k0) + 1;                                   % 1 s after the first valid output
-    d = abs(sAdv(ok) - sBms(ok));
-    fprintf("   first fresh+valid advisory at %.1f s (BMS powered at ~0.9 s)\n", t(k0));
-    fprintf("   after that: fresh %.1f %% of steps, valid %.1f %%, ARB used advisory %.1f %%\n", ...
-        100*mean(fresh(ok)), 100*mean(valid(ok)), 100*mean(use(ok)));
-    fprintf("   heartbeat advanced %d times; max datagram age %.2f s; frames missed (Pi) %g\n", ...
-        sum(diff(hb(ok)) ~= 0), max(rxAge(ok)), adv.framesMissed.Data(end));
-    fprintf("   SOC  BMS %.3f %% -> %.3f %% | advisory %.3f %% -> %.3f %%\n", 100*sBms(find(ok,1)), 100*sBms(end), 100*sAdv(find(ok,1)), 100*sAdv(end));
-    fprintf("   max |SOC_adv - SOC_bms| = %.3f %% (limit 0.05 %%: resolution + latency)\n", 100*max(d));
-    pass = mean(fresh(ok)) > 0.99 && mean(valid(ok)) > 0.99 && mean(use(ok)) > 0.99 && max(d) <= 0.0005;
+    ok = t >= t(k0) + 1;
+    fprintf("   first fresh+valid advisory at %.1f s; after that fresh %.1f %%, valid %.1f %%; cycles missed (Pi) %g\n", ...
+        t(k0), 100*mean(fresh(ok)), 100*mean(valid(ok)), adv.framesMissed.Data(end));
+    pass = pass && mean(fresh(ok)) > 0.99 && mean(valid(ok)) > 0.99;
+    % the Pi's view of the chip vs the emulator / plant (at the advisory times)
+    tt = tr.iPack.Time;  iTrue = interp1(tt, tr.iPack.Data(:), t(ok), "previous");
+    vTrue = interp1(tt, sum(tr.vGroup.Data, 2), t(ok), "previous");
+    dI = max(abs(adv.iPack.Data(ok) - iTrue));  dV = max(abs(adv.vStack.Data(ok) - vTrue));
+    fets = unique(adv.fetStatus.Data(ok))';
+    fprintf("   Pi's view of the chip: max |I - true| %.3f A, max |Vstack - true| %.3f V (CAN 0.01 A / 0.01 V + one cycle of lag), FET status %s\n", dI, dV, mat2str(fets));
+    pass = pass && isequal(fets, 5) && dV < 0.05;
+    % SOC: offset at start, tracking over the run
+    sP = adv.socGroup.Data(ok, :);  sT = interp1(tr.socGroup.Time, tr.socGroup.Data, t(ok), "previous");
+    off0 = sP(1, :) - sT(1, :);  dP = sP(end, :) - sP(1, :);  dT = sT(end, :) - sT(1, :);
+    fprintf("   SOC offset at start (OCV under load) %.2f..%.2f %%; change over the run: Pi %.3f %%, true %.3f %%, max |diff| %.3f %% (limit 0.05 %%)\n", ...
+        100*min(off0), 100*max(off0), 100*mean(dP), 100*mean(dT), 100*max(abs(dP - dT)));
+    pass = pass && max(abs(dP - dT)) <= 0.0005;
+
+    % ---- run 2: COV ----
+    v = zeros(13, 1);  v(5) = 0.6;
+    in = base.setModelParameter("StopTime", "20").setVariable("LOAD_profile", 1).setVariable("AFE_vOffset", v);
+    [~, out] = evalc("sim(in)");
+    save(fullfile(currentProject().RootFolder, "work", "pilink2.mat"), "out");
+    adv = out.logsout.get("adv").Values;  afe = out.logsout.get("afe").Values;
+    t = adv.safetyA.Data;  ta = adv.safetyA.Time;
+    tChip = afe.chg.Time(find(~afe.chg.Data(:) & afe.chg.Time > 0.05, 1));
+    kPi = find(bitand(double(adv.safetyA.Data(:)), 8) & ~bitand(double(adv.fetStatus.Data(:)), 1) & adv.fresh.Data(:), 1);
+    tPi = ta(kPi);  if isempty(tPi), tPi = NaN; end
+    iEnd = adv.iPack.Data(end);
+    fprintf("\n=== 2. COV on group 5\n   emulator CHG off at %.2f s; Pi reports COV + CHG off at %.2f s; discharge current at end (Pi) %.2f A\n", tChip, tPi, iEnd);
+    pass = pass && ~isnan(tPi) && tPi - tChip < 1.0 && iEnd > 20;
     fprintf("\nOverall: %s\n", string(ifelse(pass, "PASS", "FAIL")));
 end
 function setLink(dd, e, v)

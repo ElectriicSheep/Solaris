@@ -1,0 +1,62 @@
+function S = solarisCanDb()
+%SOLARISCANDB  CAN signal table generated from solarisCan.dbc by tools/genMatlab.py - do not edit.
+%   S.<message>.id      frame identifier
+%   S.<message>.<signal> = [startBit length intel signed scale offset]
+%   startBit as in the DBC: Intel = least significant bit, Motorola = most significant bit.
+%   S.<message>.<family>(i+1,:) = spec of <family>_<i> (e.g. CellVoltage, CellVoltage_invalidFlag, GroupSoc)
+%   Use with canPut / canGet.
+S.ADV_Status.id = uint32(896);
+S.ADV_Status.Heartbeat = [0 8 1 0 1 0];
+S.ADV_Status.Valid = [8 1 1 0 1 0];
+S.ADV_Status.SocValid = [9 1 1 0 1 0];
+S.ADV_Status.SohValid = [10 1 1 0 1 0];
+S.ADV_Status.SopValid = [11 1 1 0 1 0];
+S.ADV_Status.SoeValid = [12 1 1 0 1 0];
+S.ADV_Status.InputsStale = [13 1 1 0 1 0];
+S.ADV_Status.Initialising = [14 1 1 0 1 0];
+S.ADV_Status.EstimatorSet = [16 4 1 0 1 0];
+S.ADV_Status.InputAge = [20 12 1 0 1 0];
+S.ADV_Status.AfeState = [32 4 1 0 1 0];
+S.ADV_Status.FramesMissed = [40 16 1 0 1 0];
+S.ADV_PackEstimates.id = uint32(897);
+S.ADV_PackEstimates.SocMin = [0 14 1 0 0.01 0];
+S.ADV_PackEstimates.SocMax = [14 14 1 0 0.01 0];
+S.ADV_PackEstimates.SocSigma = [28 10 1 0 0.01 0];
+S.ADV_PackEstimates.SohCapacity = [38 10 1 0 0.1 0];
+S.ADV_PackEstimates.SohResistance = [48 10 1 0 0.1 0];
+S.ADV_PowerEnergy.id = uint32(898);
+S.ADV_PowerEnergy.SopDischarge = [0 16 1 0 1 0];
+S.ADV_PowerEnergy.SopCharge = [16 16 1 0 1 0];
+S.ADV_PowerEnergy.SoeEnergy = [32 16 1 0 1 0];
+S.ADV_PowerEnergy.SoePercent = [48 14 1 0 0.01 0];
+S.ADV_CurrentLimits.id = uint32(899);
+S.ADV_CurrentLimits.IDischargeMax = [0 12 1 0 0.1 0];
+S.ADV_CurrentLimits.IChargeMax = [12 12 1 0 0.1 0];
+S.ADV_CurrentLimits.Horizon = [24 8 1 0 1 0];
+S.ADV_GroupSoc.id = uint32(900);
+S.ADV_GroupSoc.ADV_GroupSoc_Mux = [0 8 1 0 1 0];
+S.ADV_GroupSoc.GroupSoc_012 = [8 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_008 = [8 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_004 = [8 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_000 = [8 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_013 = [22 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_009 = [22 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_005 = [22 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_001 = [22 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_014 = [36 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_010 = [36 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_006 = [36 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_002 = [36 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_015 = [50 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_011 = [50 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_007 = [50 14 1 0 0.01 0];
+S.ADV_GroupSoc.GroupSoc_003 = [50 14 1 0 0.01 0];
+S.ADV_AfeStatus.id = uint32(901);
+S.ADV_AfeStatus.SafetyStatusA = [0 8 1 0 1 0];
+S.ADV_AfeStatus.SafetyStatusB = [8 8 1 0 1 0];
+S.ADV_AfeStatus.SafetyStatusC = [16 8 1 0 1 0];
+S.ADV_AfeStatus.FetStatus = [24 8 1 0 1 0];
+S.ADV_AfeStatus.StackVoltage = [32 16 1 0 0.01 0];
+S.ADV_AfeStatus.Current = [48 16 1 1 0.01 0];
+S.ADV_GroupSoc.GroupSoc = [8 14 1 0 0.01 0; 22 14 1 0 0.01 0; 36 14 1 0 0.01 0; 50 14 1 0 0.01 0; 8 14 1 0 0.01 0; 22 14 1 0 0.01 0; 36 14 1 0 0.01 0; 50 14 1 0 0.01 0; 8 14 1 0 0.01 0; 22 14 1 0 0.01 0; 36 14 1 0 0.01 0; 50 14 1 0 0.01 0; 8 14 1 0 0.01 0; 22 14 1 0 0.01 0; 36 14 1 0 0.01 0; 50 14 1 0 0.01 0];
+end

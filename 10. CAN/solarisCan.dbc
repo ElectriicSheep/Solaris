@@ -1,0 +1,165 @@
+VERSION "solarisCan 0.2"
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: 
+
+
+BO_ 896 ADV_Status: 8 Vector__XXX
+ SG_ FramesMissed : 40|16@1+ (1,0) [0|65535] "" Vector__XXX
+ SG_ AfeState : 32|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ InputAge : 20|12@1+ (1,0) [0|4095] "ms" Vector__XXX
+ SG_ EstimatorSet : 16|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ Initialising : 14|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ InputsStale : 13|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SoeValid : 12|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SopValid : 11|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SohValid : 10|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ SocValid : 9|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Valid : 8|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Heartbeat : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 897 ADV_PackEstimates: 8 Vector__XXX
+ SG_ SohResistance : 48|10@1+ (0.1,0) [0.0|102.30000000000001] "%" Vector__XXX
+ SG_ SohCapacity : 38|10@1+ (0.1,0) [0.0|102.30000000000001] "%" Vector__XXX
+ SG_ SocSigma : 28|10@1+ (0.01,0) [0.0|10.23] "%" Vector__XXX
+ SG_ SocMax : 14|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ SocMin : 0|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+
+BO_ 898 ADV_PowerEnergy: 8 Vector__XXX
+ SG_ SoePercent : 48|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ SoeEnergy : 32|16@1+ (1,0) [0|65535] "Wh" Vector__XXX
+ SG_ SopCharge : 16|16@1+ (1,0) [0|65535] "W" Vector__XXX
+ SG_ SopDischarge : 0|16@1+ (1,0) [0|65535] "W" Vector__XXX
+
+BO_ 899 ADV_CurrentLimits: 8 Vector__XXX
+ SG_ Horizon : 24|8@1+ (1,0) [0|255] "s" Vector__XXX
+ SG_ IChargeMax : 12|12@1+ (0.1,0) [0.0|409.5] "A" Vector__XXX
+ SG_ IDischargeMax : 0|12@1+ (0.1,0) [0.0|409.5] "A" Vector__XXX
+
+BO_ 900 ADV_GroupSoc: 8 Vector__XXX
+ SG_ GroupSoc_015 m3 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_011 m2 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_007 m1 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_003 m0 : 50|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_014 m3 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_010 m2 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_006 m1 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_002 m0 : 36|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_013 m3 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_009 m2 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_005 m1 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_001 m0 : 22|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_012 m3 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_008 m2 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_004 m1 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ GroupSoc_000 m0 : 8|14@1+ (0.01,0) [0.0|163.83] "%" Vector__XXX
+ SG_ ADV_GroupSoc_Mux M : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 901 ADV_AfeStatus: 8 Vector__XXX
+ SG_ Current : 48|16@1- (0.01,0) [-327.68|327.67] "A" Vector__XXX
+ SG_ StackVoltage : 32|16@1+ (0.01,0) [0.0|655.35] "V" Vector__XXX
+ SG_ FetStatus : 24|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SafetyStatusC : 16|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SafetyStatusB : 8|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SafetyStatusA : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+
+
+
+CM_ BO_ 896 "Advisory layer status (this project)";
+CM_ SG_ 896 FramesMissed "Measurement cycles missed since start (wraps)";
+CM_ SG_ 896 AfeState "BQ76952 summary: bit0 CHG FET on, bit1 DSG FET on, bit2 safety fault active, bit3 CONFIG_UPDATE";
+CM_ SG_ 896 InputAge "Age of the newest BQ76952 measurement used";
+CM_ SG_ 896 EstimatorSet "Which estimator variant is running (0 = coulomb counting)";
+CM_ SG_ 896 Initialising "";
+CM_ SG_ 896 InputsStale "1 = BQ76952 not answering (no measurement for longer than ADV_tStale)";
+CM_ SG_ 896 SoeValid "";
+CM_ SG_ 896 SopValid "";
+CM_ SG_ 896 SohValid "";
+CM_ SG_ 896 SocValid "";
+CM_ SG_ 896 Valid "1 = estimates usable (initialised, inputs fresh)";
+CM_ SG_ 896 Heartbeat "Increments every frame (wraps); stale if unchanged > 1 s";
+CM_ BO_ 897 "Advisory SOC / SOH (this project)";
+CM_ SG_ 897 SohResistance "Resistance SOH Rnew/R, worst group (100 = new). Raw all-ones = not available.";
+CM_ SG_ 897 SohCapacity "Capacity SOH, worst group (100 = new). Raw all-ones = not available.";
+CM_ SG_ 897 SocSigma "1-sigma SOC uncertainty. Raw all-ones = not available.";
+CM_ SG_ 897 SocMax "Highest group SOC. Raw all-ones = not available.";
+CM_ SG_ 897 SocMin "Lowest group SOC. Raw all-ones = not available.";
+CM_ BO_ 898 "Advisory SOP / SOE (this project)";
+CM_ SG_ 898 SoePercent "State of energy. Raw all-ones = not available.";
+CM_ SG_ 898 SoeEnergy "Remaining energy. Raw all-ones = not available.";
+CM_ SG_ 898 SopCharge "Charge power available over the horizon. Raw all-ones = not available.";
+CM_ SG_ 898 SopDischarge "Discharge power available over the horizon. Raw all-ones = not available.";
+CM_ BO_ 899 "Advisory current limits (this project)";
+CM_ SG_ 899 Horizon "SOP prediction horizon";
+CM_ SG_ 899 IChargeMax "Charge current available over the horizon. Raw all-ones = not available.";
+CM_ SG_ 899 IDischargeMax "Discharge current available over the horizon. Raw all-ones = not available.";
+CM_ BO_ 900 "Advisory SOC per group, 4 per frame, mux 0..3 (this project)";
+CM_ SG_ 900 GroupSoc_015 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_011 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_007 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_003 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_014 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_010 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_006 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_002 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_013 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_009 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_005 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_001 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_012 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_008 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_004 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 GroupSoc_000 "Group SOC. Raw all-ones = not available.";
+CM_ SG_ 900 ADV_GroupSoc_Mux "";
+CM_ BO_ 901 "BQ76952 protection status, passed through by the Pi";
+CM_ SG_ 901 Current "Pack current as measured by the BQ76952, discharge positive";
+CM_ SG_ 901 StackVoltage "Stack voltage as measured by the BQ76952";
+CM_ SG_ 901 FetStatus "BQ76952 FET Status: bit0 CHG, 1 PCHG, 2 DSG, 3 PDSG";
+CM_ SG_ 901 SafetyStatusC "BQ76952 Safety Status C";
+CM_ SG_ 901 SafetyStatusB "BQ76952 Safety Status B: bit0 UTC, 1 UTD, 2 UTINT, 4 OTC, 5 OTD, 6 OTINT, 7 OTF";
+CM_ SG_ 901 SafetyStatusA "BQ76952 Safety Status A: bit2 CUV, 3 COV, 4 OCC, 5 OCD1, 6 OCD2, 7 SCD";
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_DEF_DEF_  "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 896 100;
+BA_ "GenMsgCycleTime" BO_ 897 100;
+BA_ "GenMsgCycleTime" BO_ 898 100;
+BA_ "GenMsgCycleTime" BO_ 899 100;
+BA_ "GenMsgCycleTime" BO_ 900 100;
+BA_ "GenMsgCycleTime" BO_ 901 100;
+
+
+
+

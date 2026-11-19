@@ -32,5 +32,6 @@
 *.png binary
 *.xlsx binary
 # Pi sources are built on Linux: keep LF line endings
-"10. CAN/pi/**" text eol=lf
+"12. AFE/**" text eol=lf
+"13. Pi/**" text eol=lf
 *.dbc text eol=lf

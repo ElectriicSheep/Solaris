@@ -20,8 +20,12 @@ function prepareRTModel(rtModelFile)
 %     4. InitFcn: sets LOAD_includeExt = false before load_params runs, so the ~1
 %        million-sample extended cycle is not compiled in (profile 4 = CYCLE A on
 %        the target; see load_params.m).
-%     5. BMS variant: SM_bms/BMS set to the STUB choice. On the OP5033 the BMS is
-%        the external controller (the Pi), not the bms.slx model reference.
+%     5. Pi link: PI_link (bmsPlatform.sldd) must be 0; the UDP blocks of the desktop
+%        SITL link do not build for the target (a link to the Pi from the OP5033 will use
+%        OPAL-RT's own UDP / CAN blocks). The BQ76952 emulator (SM_bms/AFE, 12. AFE C code)
+%        is built in through the custom-code settings copied from cfgHarness; their paths
+%        are absolute, so run defineParameters on each machine first.
+%        (Older platform versions: SM_bms/BMS set to its STUB choice if present.)
 %
 %   The repo model is the only model that is edited. To update the RT-LAB copy,
 %   re-import bmsTestPlatform.slx in RT-LAB and run this function again.
@@ -73,7 +77,9 @@ function prepareRTModel(rtModelFile)
             + newline + initFcn);
     end
 
-    % 5. BMS stub in RT builds
+    % 5. Desktop-only Pi link must be off; BMS stub for older platform versions
+    piLink = getValue(getEntry(getSection(Simulink.data.dictionary.open("bmsPlatform.sldd"), "Design Data"), "PI_link"));
+    assert(piLink.Value == 0, "Set PI_link = 0 in bmsPlatform.sldd: the UDP SITL link does not build for the target.");
     bmsBlk = mdl + "/SM_bms/BMS";
     if getSimulinkBlockHandle(bmsBlk) > 0
         assert(get_param(bmsBlk, "Variant") == "on" && get_param(bmsBlk, "VariantControlMode") == "label", ...

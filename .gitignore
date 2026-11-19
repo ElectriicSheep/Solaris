@@ -43,3 +43,9 @@ work/
 # SimBiology backup files
 *.sbproj.backup
 *.sbproj.bak
+
+# Solaris build outputs and run-time files
+12. AFE/test_emul
+12. AFE/bqe_sitl
+13. Pi/solaris_host
+13. Pi/soc_record.txt*
