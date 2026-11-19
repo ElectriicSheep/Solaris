@@ -45,6 +45,17 @@ set_param(fe, "InputPartition", {'on','off','on'}, "InputPartitionDimension", {'
     "InputPartitionWidth", {'1','1','1'});
 
 buildGroup(G);
+% Inport dimensions everywhere inside the group (tables 11 x 6, all else scalar), so
+% the feedback loops through the table memories have defined sizes
+ip = find_system(G, "LookUnderMasks", "all", "FollowLinks", "on", "BlockType", "Inport");
+for k = 1:numel(ip)
+    nmI = string(get_param(ip{k}, "Name"));
+    if startsWith(nmI, ["tab" "cnt"])
+        set_param(ip{k}, "PortDimensions", "[numel(ECM.est.socBp) numel(ECM.est.tBpC)]");
+    else
+        set_param(ip{k}, "PortDimensions", "1");
+    end
+end
 
 outs = ["zh" 1; "v1h" 1; "r0" 1; "r1" 1; "tau" 1; "Q" 1; "r0Rls" 1; "r1Rls" 1; "tauRls" 1; ...
         "tabR0" 3; "tabR1" 3; "tabTau" 3; "cntR0" 3; "cntR1" 3; "cntTau" 3];
@@ -78,6 +89,16 @@ for k = 1:size(tabs, 1)
     C(G, "upd_" + tabs(k,1) + "/1", tabs(k,1) + "Mem/1");
 end
 
+% tables as read: unvisited points take their visited neighbours' correction ratio
+fills = ["tabR0" "cntR0" "r0Init" "ECM.est.cConfR0"; "tabR1" "cntR1" "r1Init" "ECM.est.cConfRc"; ...
+         "tabTau" "cntTau" "tauInit" "ECM.est.cConfRc"];
+for k = 1:3
+    S = subsys(G, "fill_" + fills(k,1), ["tab" "cnt"], "used");
+    buildFill(S, fills(k,3), fills(k,4));
+    C(G, fills(k,1) + "Mem/1", "fill_" + fills(k,1) + "/1");
+    C(G, fills(k,2) + "Mem/1", "fill_" + fills(k,1) + "/2");
+end
+
 % capacity (gives the capacity used this step, from the previous step's sums)
 S = subsys(G, "capacity", ["v" "i" "iAvg"], ["Qprev" "Q"]);
 buildCapacity(S);
@@ -93,7 +114,7 @@ C(G, "capacity/1", "ekf/8");
 S = subsys(G, "opPoint", ["z" "T" "tabR0" "tabR1" "tabTau"], ["R0" "R1" "tau"]);
 buildOpPoint(S);
 C(G, "ekf/3", "opPoint/1"); C(G, "Tg/1", "opPoint/2");
-C(G, "tabR0Mem/1", "opPoint/3"); C(G, "tabR1Mem/1", "opPoint/4"); C(G, "tabTauMem/1", "opPoint/5");
+C(G, "fill_tabR0/1", "opPoint/3"); C(G, "fill_tabR1/1", "opPoint/4"); C(G, "fill_tabTau/1", "opPoint/5");
 C(G, "opPoint/1", "ekf/5"); C(G, "opPoint/2", "ekf/6"); C(G, "opPoint/3", "ekf/7");
 
 % R0 RLS and table
@@ -105,7 +126,7 @@ S = subsys(G, "r0Table", ["theta" "enable" "z" "T" "first" "tab" "cnt"], ["dTab"
 buildLaggedTableUpdate(S, "ECM.est.lambda0", "ECM.est.eta", "ECM.est.c0R0");
 C(G, "cntR0Mem/1", "r0Table/7");
 C(G, "r0Ident/1", "r0Table/1"); C(G, "r0Ident/2", "r0Table/2"); C(G, "ekf/1", "r0Table/3");
-C(G, "Tg/1", "r0Table/4"); C(G, "first/1", "r0Table/5"); C(G, "tabR0Mem/1", "r0Table/6");
+C(G, "Tg/1", "r0Table/4"); C(G, "first/1", "r0Table/5"); C(G, "fill_tabR0/1", "r0Table/6");
 C(G, "r0Table/1", "upd_tabR0/2"); C(G, "r0Table/2", "upd_cntR0/2");
 
 % RC branch: y = OCV(zh) - v - R0*i, identified every ECM.TsRc
@@ -128,8 +149,11 @@ C(G, "countWrap/1", "count/1"); C(G, "count/1", "tick/1"); C(G, "nDec1/1", "tick
 S = mdlEnabled(G, "rcIdent", ["y" "iWin" "R1" "tau" "z" "T" "tabR1" "tabTau" "cntR1" "cntTau"], ...
     ["dR1" "dTau" "dC1" "dC2" "R1rls" "tauRls"]);
 buildRcRls(S);
+for nmIn = ["tabR1" "tabTau" "cntR1" "cntTau"]
+    set_param(S + "/" + nmIn, "PortDimensions", "[numel(ECM.est.socBp) numel(ECM.est.tBpC)]");
+end
 C(G, "y/1", "rcIdent/1"); C(G, "iWin/1", "rcIdent/2"); C(G, "opPoint/2", "rcIdent/3"); C(G, "opPoint/3", "rcIdent/4");
-C(G, "ekf/1", "rcIdent/5"); C(G, "Tg/1", "rcIdent/6"); C(G, "tabR1Mem/1", "rcIdent/7"); C(G, "tabTauMem/1", "rcIdent/8");
+C(G, "ekf/1", "rcIdent/5"); C(G, "Tg/1", "rcIdent/6"); C(G, "fill_tabR1/1", "rcIdent/7"); C(G, "fill_tabTau/1", "rcIdent/8");
 C(G, "cntR1Mem/1", "rcIdent/9"); C(G, "cntTauMem/1", "rcIdent/10");
 C(G, "tick/1", "rcIdent/Enable");
 C(G, "rcIdent/1", "upd_tabR1/2"); C(G, "rcIdent/2", "upd_tabTau/2");
@@ -138,13 +162,45 @@ C(G, "rcIdent/3", "upd_cntR1/2"); C(G, "rcIdent/4", "upd_cntTau/2");
 % outports
 outs = ["zh" "ekf/1"; "v1h" "ekf/2"; "r0" "opPoint/1"; "r1" "opPoint/2"; "tau" "opPoint/3"; ...
         "Q" "capacity/2"; "r0Rls" "r0Ident/1"; "r1Rls" "rcIdent/5"; "tauRls" "rcIdent/6"; ...
-        "tabR0" "upd_tabR0/1"; "tabR1" "upd_tabR1/1"; "tabTau" "upd_tabTau/1"; ...
+        "tabR0" "fill_tabR0/1"; "tabR1" "fill_tabR1/1"; "tabTau" "fill_tabTau/1"; ...
         "cntR0" "upd_cntR0/1"; "cntR1" "upd_cntR1/1"; "cntTau" "upd_cntTau/1"];
 for k = 1:size(outs, 1)
     B(G, outs(k,1), "Out");
     C(G, outs(k,2), outs(k,1) + "/1");
 end
 arrange(G);
+end
+
+%% ===================================================================== fill
+function buildFill(S, initName, cConf)
+% Correction ratio R = table / starting table. Confidence of a point's own data:
+% conf = count/(count + cConf). Ratio from the neighbours (kernel KS over SOC, KT over T):
+%   Rfill = (KS*(conf.*R)*KT' + eps) ./ (KS*conf*KT' + eps)    (-> 1 with no data nearby)
+% Table as read: start .* (conf.*R + (1-conf).*Rfill). Learning (the stored table) is unchanged.
+% ECM.est.spread = 0 passes the stored table through.
+dims = "[numel(ECM.est.socBp) numel(ECM.est.tBpC)]";
+set_param(S + "/tab", "PortDimensions", dims); set_param(S + "/cnt", "PortDimensions", dims);
+B(S, "init", "Const", "Value", initName);
+B(S, "R", "Prod", "Inputs", "*/"); C(S, "tab/1", "R/1"); C(S, "init/1", "R/2");
+B(S, "cConf", "Const", "Value", cConf);
+B(S, "cntC", "Sum", "Inputs", "++"); C(S, "cnt/1", "cntC/1"); C(S, "cConf/1", "cntC/2");
+B(S, "conf", "Prod", "Inputs", "*/"); C(S, "cnt/1", "conf/1"); C(S, "cntC/1", "conf/2");
+B(S, "A", "Prod", "Inputs", "2"); C(S, "conf/1", "A/1"); C(S, "R/1", "A/2");
+B(S, "KS", "Const", "Value", "ECM.est.KS"); B(S, "KTt", "Const", "Value", "ECM.est.KT'");
+B(S, "num", "Prod", "Inputs", "3", "Multiplication", "Matrix(*)"); C(S, "KS/1", "num/1"); C(S, "A/1", "num/2"); C(S, "KTt/1", "num/3");
+B(S, "den", "Prod", "Inputs", "3", "Multiplication", "Matrix(*)"); C(S, "KS/1", "den/1"); C(S, "conf/1", "den/2"); C(S, "KTt/1", "den/3");
+B(S, "numE", "Bias", "Bias", "ECM.est.fillEps"); C(S, "num/1", "numE/1");
+B(S, "denE", "Bias", "Bias", "ECM.est.fillEps"); C(S, "den/1", "denE/1");
+B(S, "Rfill", "Prod", "Inputs", "*/"); C(S, "numE/1", "Rfill/1"); C(S, "denE/1", "Rfill/2");
+B(S, "nconf", "Gain", "Gain", "-1"); C(S, "conf/1", "nconf/1");
+B(S, "omc", "Bias", "Bias", "1"); C(S, "nconf/1", "omc/1");
+B(S, "B2", "Prod", "Inputs", "2"); C(S, "omc/1", "B2/1"); C(S, "Rfill/1", "B2/2");
+B(S, "Rused", "Sum", "Inputs", "++"); C(S, "A/1", "Rused/1"); C(S, "B2/1", "Rused/2");
+B(S, "filled", "Prod", "Inputs", "2"); C(S, "init/1", "filled/1"); C(S, "Rused/1", "filled/2");
+B(S, "spread", "Const", "Value", "double(ECM.est.spread)");
+B(S, "sel", "Switch", "Criteria", "u2 ~= 0"); C(S, "filled/1", "sel/1"); C(S, "spread/1", "sel/2"); C(S, "tab/1", "sel/3");
+C(S, "sel/1", "used/1");
+arrange(S);
 end
 
 %% ===================================================================== EKF

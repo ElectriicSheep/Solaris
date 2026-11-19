@@ -118,6 +118,36 @@ Capacity started within 0.1 % of the true value.
 
 **Temperature axis.** Temperatures stayed between 15 and 21 °C. Only the 10 °C and 20 °C columns were updated, and the data fixes only a weighted combination of the two. So each column can be wrong while the value at the operating temperature is right.
 
+## Spreading learning to unvisited table points (2026-11-20)
+
+Learning itself (the stored tables) is unchanged. When a table is read, each point's correction ratio (stored value ÷ starting value) is blended with its neighbours' ratios:
+- the blend is weighted by distance, using kernels of 1.5 points over SOC and over temperature;
+- each point's own data counts in proportion to count/(count + c), with c = 2000 for R0 and c = 200 for R1 and τ1;
+- a point with no updates takes its neighbours' ratio, and a point with plenty of its own data keeps its own.
+
+This is the `fill_*` blocks in `adaptiveEcm.slx`, switched by `ecmParams(Spread=…)`. Starting errors can now vary over the table (`ErrShape`):
+- `group`: one error per parameter per group, as before;
+- `smooth`: a smooth surface with |d| of 2–5 % and one sign per group, like a table measured on a different cell;
+- `node`: an independent error at every point. This is the hard case.
+
+The test was CYCLE A for 48 h, error seed 1. For `smooth` it was also run with seeds 2 and 3, which give the same picture. For example, the R0 95th-percentile error in the first discharge was 0.61 / 0.71 / 0.66 % with spreading and 3.08 / 3.17 / 3.12 % without; the R1 whole-table median was 1.51 / 1.54 / 1.79 % with spreading and 3.42 / 3.47 / 3.37 % without.
+
+| Starting errors | Spreading | R0 first discharge, 95th pct | R0 last 24 h, 95th pct | R0 at SOC 0 and 100 % (never visited) | R0 whole table, median | R1 whole table, median | τ1 whole table, median |
+|---|---|---|---|---|---|---|---|
+| group | off | 2.56 % | 1.17 % | 3.04 % | 2.61 % | 2.95 % | 3.24 % |
+| group | on | **0.41 %** | **0.61 %** | **0.23 %** | **0.32 %** | 1.70 % | 2.28 % |
+| smooth | off | 3.08 % | 1.46 % | 3.73 % | 3.08 % | 3.42 % | 3.56 % |
+| smooth | on | **0.61 %** | **0.73 %** | **0.43 %** | **0.67 %** | 1.51 % | 2.30 % |
+| node | off | 2.48 % | 1.59 % | 2.58 % | 3.21 % | 3.48 % | 3.61 % |
+| node | on | 2.66 % | 1.38 % | 2.93 % | 3.10 % | 3.52 % | 3.70 % |
+
+Errors at the operating point use the table values the EKF actually uses. The "SOC 0 and 100 %" and "whole table" columns cover every point, including those never updated.
+
+- **Smooth or group starting errors:** spreading removes most of the R0 sawtooth (worst-case error in the first discharge falls from about 3 % to about 0.6 %). Groups whose R0 error later left the band fall from 13 of 13 to 9–10 of 13. The never-visited ends of the table end up within 0.5 %.
+- **R1 and τ1:** spreading halves the whole-table error, but the operating-point error over the last 24 h is unchanged (95th percentile 7.5 % for R1, 9.8 % for τ1). Those remain limited by the 1 mV resolution.
+- **Independent starting errors:** spreading does nothing useful, and is slightly worse at the never-visited ends (2.9 % against 2.6 %). Neighbours carry no information about a point whose error is independent of theirs. The benefit therefore depends on the real table errors being smooth, which is plausible for a table from another cell or an older characterisation, but is an assumption.
+- **Convergence times with independent errors:** these look fast (about 0.3 h) only because randomly signed point errors partly cancel at points between table points. That is not real convergence.
+
 ## Limits
 
 - **Best-case model match.** The plant and the estimator have the same 1-RC structure, the plant has no temperature dependence, and there is no hysteresis or diffusion.

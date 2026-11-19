@@ -14,7 +14,7 @@ classdef EcmConvergenceApp < handle
     properties (Access = private)
         fig
         % controls
-        hoursEdit; chunkEdit; errMinEdit; errMaxEdit; seedEdit; noiseBox; savedBox
+        hoursEdit; chunkEdit; errMinEdit; errMaxEdit; seedEdit; noiseBox; savedBox; shapeDrop; spreadBox
         runBtn; pauseBtn; stopBtn; saveBtn; groupDrop; paramDrop; accelBox
         % header
         clockLbl; whLbl; speedLbl; statusLbl
@@ -46,7 +46,10 @@ classdef EcmConvergenceApp < handle
                 opts.Seed (1,1) double = app.seedEdit.Value
                 opts.Noise (1,1) logical = app.noiseBox.Value
                 opts.FromSaved (1,1) logical = app.savedBox.Value
+                opts.Shape (1,1) string = app.shapeDrop.Value
+                opts.Spread (1,1) logical = app.spreadBox.Value
             end
+            app.shapeDrop.Value = opts.Shape; app.spreadBox.Value = opts.Spread;
             app.hoursEdit.Value = hours; app.seedEdit.Value = opts.Seed;
             app.noiseBox.Value = opts.Noise; app.savedBox.Value = opts.FromSaved;
             app.onRun();
@@ -88,8 +91,8 @@ classdef EcmConvergenceApp < handle
             app.statusLbl = uilabel(h, "Text", "Ready", "FontSize", 14);
 
             % controls
-            c = uigridlayout(g, [17 2]); c.Layout.Row = 2; c.Layout.Column = 1;
-            c.RowHeight = repmat({28}, 1, 17); c.ColumnWidth = {"1.3x", "1x"};
+            c = uigridlayout(g, [19 2]); c.Layout.Row = 2; c.Layout.Column = 1;
+            c.RowHeight = repmat({28}, 1, 19); c.ColumnWidth = {"1.3x", "1x"};
             row = 0;
             function e = numRow(label, val, lim)
                 row = row + 1;
@@ -102,6 +105,14 @@ classdef EcmConvergenceApp < handle
             app.errMinEdit = numRow("Initial error min (%)", 2, [0 50]);
             app.errMaxEdit = numRow("Initial error max (%)", 5, [0 50]);
             app.seedEdit   = numRow("Initial error seed", 1, [1 1e6]);
+            row = row + 1;
+            l = uilabel(c, "Text", "Starting error shape"); l.Layout.Row = row; l.Layout.Column = 1;
+            app.shapeDrop = uidropdown(c, "Items", ["one per group" "smooth over table" "independent per point"], ...
+                "ItemsData", ["group" "smooth" "node"], "Value", "smooth");
+            app.shapeDrop.Layout.Row = row; app.shapeDrop.Layout.Column = 2;
+            row = row + 1;
+            app.spreadBox = uicheckbox(c, "Text", "Spread learning to unvisited points", "Value", true);
+            app.spreadBox.Layout.Row = row; app.spreadBox.Layout.Column = [1 2];
             row = row + 1;
             app.noiseBox = uicheckbox(c, "Text", "Sensor noise and current offset", "Value", false);
             app.noiseBox.Layout.Row = row; app.noiseBox.Layout.Column = [1 2];
@@ -201,7 +212,8 @@ classdef EcmConvergenceApp < handle
             end
             app.P = ecmParams(Seed=app.seedEdit.Value, ...
                 ErrRange=[app.errMinEdit.Value app.errMaxEdit.Value]/100, ...
-                Noise=app.noiseBox.Value, InitTables=init);
+                Noise=app.noiseBox.Value, InitTables=init, ErrShape=app.shapeDrop.Value, ...
+                Spread=app.spreadBox.Value);
             assignin("base", "ECM", app.P);
             load_system(app.mdl);
             set_param(app.mdl, "FastRestart", "off");

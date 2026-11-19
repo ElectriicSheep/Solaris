@@ -2,7 +2,8 @@ function P = ecmParams(opts)
 %ECMPARAMS Parameters for the offline adaptive-ECM test (ecmOffline.slx).
 %
 %   P = ecmParams                      defaults (seed 1, initial errors 2-5 %)
-%   P = ecmParams(Seed=3, ErrRange=[0.02 0.05], Noise=true, InitTables=S)
+%   P = ecmParams(Seed=3, ErrRange=[0.02 0.05], ErrShape="smooth", Noise=true, InitTables=S, ...
+%                 Profile="sample3", LoadScale=3, Spread=true)
 %
 % PLANT (truth). 13 group-level equivalent circuits, one per parallel group (7P).
 %   Each group's tables are built from its 7 cells: OCV and tau1 are the average of
@@ -31,6 +32,17 @@ function P = ecmParams(opts)
 %               (11x6x13x3) from a previous run (ecmSaveTables); replaces the
 %               perturbed start (restart test)
 %   PlantSeed   PLANT_variationSeed for the cell spread (default 1)
+%   ErrShape    shape of the starting errors over each group's SOC x T table:
+%               "group"   one error per parameter per group (whole table scaled)
+%               "smooth"  a smooth surface over SOC x T, |d| in ErrRange, one sign
+%                         per parameter per group (like a table from another cell)
+%               "node"    an independent error at every table point (|d| in ErrRange,
+%                         random sign): the hardest case for spreading
+%   Profile     discharge load: "cycleA" (marine CYCLE A, default) or "sample3"
+%               (24Vsample 3.csv: 16.5 s at ~90 Hz, averaged into 0.1 s steps, looped)
+%   LoadScale   multiplies the discharge load current (default 1)
+%   Spread      true: unvisited table points take the correction ratio of their
+%               visited neighbours when the tables are read (default true)
 
 arguments
     opts.Seed (1,1) double = 1
@@ -38,6 +50,10 @@ arguments
     opts.Noise (1,1) logical = false
     opts.InitTables = []
     opts.PlantSeed (1,1) double = 1
+    opts.ErrShape (1,1) string {mustBeMember(opts.ErrShape, ["group" "smooth" "node"])} = "group"
+    opts.Profile (1,1) string {mustBeMember(opts.Profile, ["cycleA" "sample3"])} = "cycleA"
+    opts.LoadScale (1,1) double = 1
+    opts.Spread (1,1) logical = true
 end
 
 here = fileparts(mfilename("fullpath"));
@@ -106,8 +122,22 @@ end
 P.sens.noiseSeed = 101;
 
 %% Load schedule
-lp = load(fullfile(root, "01. LoadProfiles", "marineCycle_a.mat"), "marine_cycle").marine_cycle;
-P.load.profile = lp(2, :)';                         % A, pack, discharge positive, 0.1 s samples
+switch opts.Profile
+    case "cycleA"
+        lp = load(fullfile(root, "01. LoadProfiles", "marineCycle_a.mat"), "marine_cycle").marine_cycle;
+        prof = lp(2, :)';                                % A, pack, discharge positive, 0.1 s samples
+    case "sample3"
+        % 24 V system recording; time stamps irregular (~11 ms). Each 0.1 s step is the
+        % mean of the samples in it (as a current integrated over the step).
+        T = readtable(fullfile(root, "01. LoadProfiles", "24Vsample 3.csv"), "VariableNamingRule", "preserve");
+        t = seconds(T{:, 1} - T{1, 1});  i = T{:, 2};
+        nb = floor(t(end) / P.Ts);
+        b = min(floor(t / P.Ts) + 1, nb);
+        prof = accumarray(b, i, [nb 1], @mean, NaN);
+        prof = fillmissing(prof, "previous");
+end
+P.load.profile = opts.LoadScale * prof;
+P.load.profileName = opts.Profile;  P.load.scale = opts.LoadScale;
 P.load.N       = numel(P.load.profile);
 P.load.iChg    = 7;          % A, constant-current charge (0.3C)
 P.load.socLow  = 0.10;       % end discharge when the lowest group reaches this (true SOC)
@@ -136,19 +166,38 @@ end
 tr.Q = Q;
 P.truth = tr;
 
-% Initial errors
+% Initial errors (relative, d): capacity one per group; tables per opts.ErrShape
 s = RandStream("mt19937ar", "Seed", opts.Seed);
-drawErr = @() (opts.ErrRange(1) + diff(opts.ErrRange) * rand(s, 1, P.nG)) .* sign(rand(s, 1, P.nG) - 0.5);
+lo = opts.ErrRange(1);  span = diff(opts.ErrRange);
+drawErr = @() (lo + span * rand(s, 1, P.nG)) .* sign(rand(s, 1, P.nG) - 0.5);
 P.est.initErr.r0 = drawErr();  P.est.initErr.r1 = drawErr();
 P.est.initErr.tau = drawErr(); P.est.initErr.Q = drawErr();
-P.est.seed = opts.Seed;  P.est.errRange = opts.ErrRange;
+[zz, TT] = ndgrid(socBp, P.est.tBpC);
+for nmE = ["r0" "r1" "tau"]
+    D = zeros(nS, nTe, P.nG);
+    for g = 1:P.nG
+        switch opts.ErrShape
+            case "group"
+                D(:, :, g) = P.est.initErr.(nmE)(g);
+            case "smooth"
+                % u in [0,1]: two sinusoids, wavelength 0.6-1.2 in SOC and 40-80 C in T
+                lz = 0.6 + 0.6 * rand(s);  lt = 40 + 40 * rand(s);  ph = 2*pi*rand(s, 1, 2);
+                u = 0.5 + 0.25 * sin(2*pi*zz/lz + ph(1)) + 0.25 * sin(2*pi*TT/lt + ph(2));
+                D(:, :, g) = sign(P.est.initErr.(nmE)(g)) * (lo + span * u);
+            case "node"
+                D(:, :, g) = (lo + span * rand(s, nS, nTe)) .* sign(rand(s, nS, nTe) - 0.5);
+        end
+    end
+    P.est.initErrTable.(nmE) = D;
+end
+P.est.seed = opts.Seed;  P.est.errRange = opts.ErrRange;  P.est.errShape = opts.ErrShape;
 if isempty(opts.InitTables)
-    P.est.init.r0  = tr.r0  .* reshape(1 + P.est.initErr.r0,  1, 1, []);
-    P.est.init.r1  = tr.r1  .* reshape(1 + P.est.initErr.r1,  1, 1, []);
-    P.est.init.tau = tr.tau .* reshape(1 + P.est.initErr.tau, 1, 1, []);
+    P.est.init.r0  = tr.r0  .* (1 + P.est.initErrTable.r0);
+    P.est.init.r1  = tr.r1  .* (1 + P.est.initErrTable.r1);
+    P.est.init.tau = tr.tau .* (1 + P.est.initErrTable.tau);
     P.est.init.Q   = Q .* (1 + P.est.initErr.Q);
     P.est.init.count = zeros(nS, nTe, P.nG, 3);
-    P.est.init.source = sprintf("true x (1 + d), |d| in [%g %g], seed %d", opts.ErrRange, opts.Seed);
+    P.est.init.source = sprintf("true x (1 + d), |d| in [%g %g], shape %s, seed %d", opts.ErrRange, opts.ErrShape, opts.Seed);
 else
     T0 = opts.InitTables;
     P.est.init.r0 = T0.r0;  P.est.init.r1 = T0.r1;  P.est.init.tau = T0.tau;
@@ -176,6 +225,13 @@ P.est.rcIV      = true;      % instrumental variables for the RC branch (the blo
 P.est.eta       = 2e-4;      % table step per 0.1 s at full weight, relative to the node value (x10 per RC update)
 P.est.c0R0      = 2e4;       % R0 node step shrinks as c0/(c0 + weighted count) ...
 P.est.c0Rc      = 2e3;       % ... same for R1 and tau1 (RC updates are 10x less frequent)
+P.est.spread    = opts.Spread;   % spread learning to unvisited table points (see adaptiveEcm fill blocks)
+P.est.cConfR0   = 2000;      % confidence of a node's own R0 data = count/(count + cConfR0)
+P.est.cConfRc   = 200;       % same for R1, tau1 (RC updates are 10x less frequent)
+lS = 1.5;  lT = 1.5;         % spreading kernel lengths, in table points
+P.est.KS = exp(-abs((1:nS)' - (1:nS)) / lS);
+P.est.KT = exp(-abs((1:nTe)' - (1:nTe)) / lT);
+P.est.fillEps = 1e-6;
 P.est.nearFrac  = 0.2;       % SOC nodes are moved only when the estimate lies within this fraction of the node spacing
 P.est.stepFloor = 0.05;      % ... but not below this fraction (keeps tracking slow changes, e.g. ageing)
 P.est.aMin      = exp(-P.TsRc / 5);     % bounds on a (tau1 in 5 .. 500 s)

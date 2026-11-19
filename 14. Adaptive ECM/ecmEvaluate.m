@@ -12,7 +12,8 @@ c.add(L.t, E, L.Wh);
 R.conv = c;
 R.table = c.table();
 R.finalErr_pct = squeeze(100 * E(end, :, :));          % 13 x 4
-R.initErr_pct = 100 * [P.est.initErr.r0; P.est.initErr.r1; P.est.initErr.tau; P.est.initErr.Q]';
+md = @(D) reshape(median(D, [1 2]), 1, []);   % median over the table, per group
+R.initErr_pct = 100 * [md(P.est.initErrTable.r0); md(P.est.initErrTable.r1); md(P.est.initErrTable.tau); P.est.initErr.Q]';
 nm = ["r0" "r1" "tau"]; tb = ["tabR0" "tabR1" "tabTau"]; cn = ["cntR0" "cntR1" "cntTau"];
 for k = 1:3
     e = 100 * (L.(tb(k)) - P.truth.(nm(k))) ./ P.truth.(nm(k));
