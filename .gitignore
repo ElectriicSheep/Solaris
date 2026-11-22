@@ -1,51 +1,23 @@
-# Autosave files
+﻿# MATLAB/Simulink generated files
 *.asv
-*.m~
 *.autosave
-*.slx.r*
-*.mdl.r*
-
-# Derived content-obscured files
-*.p
-
-# Compiled MEX files
-*.mex*
-
-# Packaged app and toolbox files
-*.mlappinstall
-*.mltbx
-
-# Deployable archives
-*.ctf
-
-# Generated helpsearch folders
-helpsearch*/
-
-# Code generation folders
-slprj/
-sccprj/
-codegen/
-*_ert_rtw/
-*_grt_rtw/
-
-# Project build folder (Simulink cache and generated code; set in the project settings)
-work/
-
-# Cache files
 *.slxc
+*.m~
+slprj/
+sfprj/
+codegen/
 
-# Cloud based storage dotfile
-.MATLABDriveTag
+# Simulation outputs
+*.mldatx
 
-# buildtool cache folder
-.buildtool/
+# Temporary files
+*.tmp
+*.bak
 
-# SimBiology backup files
-*.sbproj.backup
-*.sbproj.bak
+# Python cache
+__pycache__/
 
-# Solaris build outputs and run-time files
-12. AFE/test_emul
-12. AFE/bqe_sitl
-13. Pi/solaris_host
-13. Pi/soc_record.txt*
+# Local configuration
+.env
+*.pdb
+work/

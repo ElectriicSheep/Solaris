@@ -18,7 +18,7 @@ classdef EcmConvergenceApp < handle
         % controls
         hoursEdit; cyclesEdit; chunkEdit; profileDrop; methodDrop
         errMinEdit; errMaxEdit; seedEdit; shapeDrop; baseDrop
-        spreadBox; noiseBox; tempBox; degBox; savedBox; continueBox; accelBox
+        spreadBox; noiseBox; tempBox; degBox; savedBox; continueBox; accelBox; trendBox; ageEdit
         runBtn; pauseBtn; stopBtn; saveBtn; openBtn; groupDrop; paramDrop
         % header
         clockLbl; whLbl; speedLbl; statusLbl; viewSlider; playBtn
@@ -104,7 +104,7 @@ classdef EcmConvergenceApp < handle
 
             % controls (scrollable)
             pnl = uipanel(g, "BorderType", "none", "Scrollable", "on"); pnl.Layout.Row = 2; pnl.Layout.Column = 1;
-            nRows = 32;
+            nRows = 35;
             c = uigridlayout(pnl, [nRows 2]); c.RowHeight = repmat({26}, 1, nRows); c.ColumnWidth = {"1.25x", "1x"};
             c.Scrollable = "on";
             row = 0;
@@ -133,7 +133,7 @@ classdef EcmConvergenceApp < handle
             app.cyclesEdit = numRow("or cycles (0 = use hours)", 0, [0 1e4]);
             app.chunkEdit  = numRow("Update every (sim min)", 30, [1 1440]);
             app.profileDrop = dropRow("Load profile", ["CYCLE A (marine)" "Ideal excitation"], ["cycleA" "ideal"], "cycleA");
-            app.methodDrop = dropRow("Estimation method", ["FFRLS + EKF"], ["ffrls"], "ffrls");
+            app.methodDrop = dropRow("Estimation method", ["FFRLS + EKF" "Dual EKF"], ["ffrls" "dekf"], "ffrls");
             lab("Estimator start");
             app.errMinEdit = numRow("Initial error min (%)", 2, [0 50]);
             app.errMaxEdit = numRow("Initial error max (%)", 5, [0 50]);
@@ -143,10 +143,12 @@ classdef EcmConvergenceApp < handle
             app.baseDrop   = dropRow("Errors relative to", ["true values at start" "new-cell values"], ["current" "new"], "current");
             app.spreadBox  = boxRow("Spread learning to unvisited points", true);
             app.savedBox   = boxRow("Start from saved tables", false);
+            app.trendBox   = boxRow("Capacity trend (derivative)", false);
             lab("Plant (placeholders)");
             app.tempBox  = boxRow("Temperature dependence", true);
             app.degBox   = boxRow("Degradation", true);
             app.noiseBox = boxRow("Sensor noise and current offset", false);
+            app.ageEdit  = numRow("Ageing speed-up (x)", 1, [0.1 1000]);
             lab("Run control");
             app.continueBox = boxRow("Continue from the end of the last run", false);
             app.accelBox = boxRow("Accelerator mode (faster)", true);
@@ -334,7 +336,8 @@ classdef EcmConvergenceApp < handle
                 P = ecmParams(Seed=app.seedEdit.Value, ErrRange=[app.errMinEdit.Value app.errMaxEdit.Value]/100, ...
                     Noise=app.noiseBox.Value, InitTables=init, ErrShape=app.shapeDrop.Value, Spread=app.spreadBox.Value, ...
                     Profile=app.profileDrop.Value, IC=app.icStruct(), TempDep=app.tempBox.Value, ...
-                    Degradation=app.degBox.Value, ErrBase=app.baseDrop.Value);
+                    Degradation=app.degBox.Value, ErrBase=app.baseDrop.Value, Method=app.methodDrop.Value, ...
+                    TrendQ=app.trendBox.Value, AgeingScale=app.ageEdit.Value);
                 app.E = EcmEngine(P, 10);
             end
             app.E.start(Accelerator=app.accelBox.Value);

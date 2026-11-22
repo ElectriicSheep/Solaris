@@ -15,8 +15,40 @@
 #define BQ76952_EMUL_H
 #include <stdint.h>
 
+/* Opaque per-instance state. Each Simulink block owns one allocation. */
+typedef struct BqeState BqeState;
+typedef struct {
+    uint16_t usedCells;
+    uint32_t shuntMicroOhms;
+    uint8_t i2cAddress;
+    uint8_t daConfig, protEnabledA, protEnabledB;
+    uint16_t mfgStatusInit;
+    uint8_t covThreshold, covHyst; uint16_t covDelay;
+    uint8_t cuvThreshold, cuvHyst; uint16_t cuvDelay;
+    uint8_t occThreshold, occDelay; int16_t occRecoveryMilliAmps;
+    uint8_t ocd1Threshold, ocd1Delay; uint16_t ocdRecoveryMilliAmps;
+    uint8_t scdThreshold, scdDelay, scdRecoverySeconds;
+    int8_t otcThreshold, otcRecovery, otdThreshold, otdRecovery;
+    int8_t utcThreshold, utcRecovery, utdThreshold, utdRecovery;
+    uint8_t otUtDelaySeconds, recoveryTimeSeconds;
+    uint8_t pinConfig[9];
+} BqeConfig;
+BqeState *bqe_create(void);
+void bqe_destroy(BqeState *state);
+void bqe_init_instance(BqeState *state);
+void bqe_configure_instance(BqeState *state, const BqeConfig *config);
+void bqe_i2c_write_instance(BqeState *state, uint8_t reg, const uint8_t *data, uint8_t len);
+void bqe_i2c_read_instance(BqeState *state, uint8_t reg, uint8_t *data, uint8_t len);
+void bqe_step_instance(BqeState *state, double dt, const double *vIn, double iChg,
+                       const double *tPinK, double tIntK, double vPack, double vLd,
+                       double loadRemoved, const uint8_t *wr, uint8_t *snap, uint8_t *fet);
+
 #define BQE_SNAP_BYTES  144   /* 'B''Q''7''6', seq u32, ack u32, t_ms u32, direct memory [128] */
 #define BQE_WRITE_BYTES 40    /* seq u32 (0 = none), reg u8, len u8, data [32], pad [2] */
+#define BQE_I2C_REQ_BYTES 40  /* seq u32, 7-bit address, read flag, register, length, data[32] */
+#define BQE_I2C_RESP_BYTES 40 /* seq u32, status (0 ACK/1 NACK), length, data[32], pad */
+void bqe_i2c_transaction_instance(BqeState *state, const uint8_t *request,
+                                  uint8_t *response);
 
 /* Power-on reset: registers cleared, data memory loaded from solaris_config.h (as OTP). */
 void bqe_init(void);

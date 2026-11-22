@@ -35,3 +35,16 @@
 "12. AFE/**" text eol=lf
 "13. Pi/**" text eol=lf
 *.dbc text eol=lf
+
+## Binary types must override the folder text rules above (last match wins)
+*.slx binary -eol merge=mlAutoMerge
+*.sldd binary -eol merge=mlAutoMerge
+*.mex* binary -eol
+*.mat binary -eol
+*.mlx binary -eol
+*.mlapp binary -eol
+*.fig binary -eol
+*.slxc binary -eol
+*.png binary -eol
+*.jpg binary -eol
+*.pdf binary -eol
