@@ -73,36 +73,48 @@ add_block('simulink/Sources/In1',[sys '/tDieK'],'Port','3','PortDimensions','1',
 add_block('simulink/Sources/In1',[sys '/i2cTxn'],'Port','4','PortDimensions','40', ...
     'OutDataTypeStr','uint8','Position',[25 690 55 710]);
 
-% Current path: BAT- -> shunt -> anti-series CHG/DSG switches -> PACK-.
+% Current path (as on the real BQ76952EVM: high-side FETs, low-side shunt)
+%   Negative: BAT- -> shunt -> PACK-
+%   Positive: BAT+ -> board link -> CHG_FET -> DSG_FET -> PACK+  (anti-series)
 add_block('fl_lib/Electrical/Electrical Sensors/Current Sensor',[sys '/ShuntCurrentSensor'], ...
     'Position',[440 610 475 650]);
 add_block('fl_lib/Electrical/Electrical Elements/Resistor',[sys '/CurrentShunt'], ...
     'R','ShuntOhms','Position',[500 615 535 645]);
-add_block('ee_lib/Semiconductors & Converters/Ideal Semiconductor Switch',[sys '/CHG_FET'], ...
-    'Ron','FetRon','Goff','FetGoff','Position',[565 585 605 625]);
-add_block('ee_lib/Semiconductors & Converters/Ideal Semiconductor Switch',[sys '/DSG_FET'], ...
-    'Ron','FetRon','Goff','FetGoff','Position',[635 630 675 670]);
 pwire(sys,[sys '/BAT-'],'port',[sys '/ShuntCurrentSensor'],'p');
 pwire(sys,[sys '/ShuntCurrentSensor'],'n',[sys '/CurrentShunt'],'p');
-pwire(sys,[sys '/CurrentShunt'],'n',[sys '/CHG_FET'],'K');
-pwire(sys,[sys '/CHG_FET'],'A',[sys '/DSG_FET'],'A');
-pwire(sys,[sys '/DSG_FET'],'K',[sys '/PACK-'],'port');
+pwire(sys,[sys '/CurrentShunt'],'n',[sys '/PACK-'],'port');
+
 add_block('fl_lib/Electrical/Electrical Elements/Resistor',[sys '/BoardPositiveLink'], ...
     'R','PositiveLinkOhms','Position',[455 520 490 550]);
+add_block('ee_lib/Semiconductors & Converters/Ideal Semiconductor Switch',[sys '/CHG_FET'], ...
+    'Ron','FetRon','Goff','FetGoff','Position',[565 515 605 555]);
+add_block('ee_lib/Semiconductors & Converters/Ideal Semiconductor Switch',[sys '/DSG_FET'], ...
+    'Ron','FetRon','Goff','FetGoff','Position',[635 515 675 555]);
 pwire(sys,[sys '/BAT+'],'port',[sys '/BoardPositiveLink'],'p');
-pwire(sys,[sys '/BoardPositiveLink'],'n',[sys '/PACK+'],'port');
+pwire(sys,[sys '/BoardPositiveLink'],'n',[sys '/CHG_FET'],'A');
+pwire(sys,[sys '/CHG_FET'],'K',[sys '/DSG_FET'],'K');
+pwire(sys,[sys '/DSG_FET'],'A',[sys '/PACK+'],'port');
 
-% Terminal voltage sensors branch at internal component nodes so each exposed
-% conserving terminal itself retains one unambiguous line connection.
-add_block('fl_lib/Electrical/Electrical Sensors/Voltage Sensor',[sys '/VBATSensor'],'Position',[430 40 465 75]);
+% Body diodes of the real MOSFETs: an OFF FET still conducts one way.
+% CHG off -> discharge still possible; DSG off -> charge still possible.
+add_block('fl_lib/Electrical/Electrical Elements/Diode',[sys '/CHG_BodyDiode'], ...
+    'Vf','0.7','Ron','0.01','Goff','FetGoff','Position',[565 470 605 500]);
+add_block('fl_lib/Electrical/Electrical Elements/Diode',[sys '/DSG_BodyDiode'], ...
+    'Vf','0.7','Ron','0.01','Goff','FetGoff','Position',[635 470 675 500]);
+pwire(sys,[sys '/CHG_FET'],'A',[sys '/CHG_BodyDiode'],'p');   % anode: BAT+ side
+pwire(sys,[sys '/CHG_FET'],'K',[sys '/CHG_BodyDiode'],'n');   % cathode: between the FETs
+pwire(sys,[sys '/DSG_FET'],'A',[sys '/DSG_BodyDiode'],'p');   % anode: PACK+ side
+pwire(sys,[sys '/DSG_FET'],'K',[sys '/DSG_BodyDiode'],'n');   % cathode: between the FETs
+
+% PACK pin voltage: PACK+ (load side of the FETs) relative to BAT- (chip VSS).
+% Feeds both the PACK and LD emulator inputs: on the EVM the LD pin sits on
+% PACK+ through a resistor. Stack voltage is computed in C from the cell sum.
+% Sensors branch at internal component nodes so each exposed conserving
+% terminal keeps one unambiguous line connection.
 add_block('fl_lib/Electrical/Electrical Sensors/Voltage Sensor',[sys '/VPACKSensor'],'Position',[500 40 535 75]);
-add_block('nesl_utility/PS-Simulink Converter',[sys '/PSVBAT'],'Position',[455 90 500 115]);
 add_block('nesl_utility/PS-Simulink Converter',[sys '/PSVPACK'],'Position',[520 125 565 150]);
-pwire(sys,[sys '/BoardPositiveLink'],'p',[sys '/VBATSensor'],'p');
-pwire(sys,[sys '/ShuntCurrentSensor'],'p',[sys '/VBATSensor'],'n');
-pwire(sys,[sys '/VBATSensor'],'V',[sys '/PSVBAT'],'input');
-pwire(sys,[sys '/BoardPositiveLink'],'n',[sys '/VPACKSensor'],'p');
-pwire(sys,[sys '/DSG_FET'],'K',[sys '/VPACKSensor'],'n');
+pwire(sys,[sys '/DSG_FET'],'A',[sys '/VPACKSensor'],'p');
+pwire(sys,[sys '/ShuntCurrentSensor'],'p',[sys '/VPACKSensor'],'n');
 pwire(sys,[sys '/VPACKSensor'],'V',[sys '/PSVPACK'],'input');
 
 % Control signals for the two physical FET switch blocks.
@@ -149,8 +161,8 @@ add_line(sys,'LoadRemovedDouble/1','LoadRemovedDelay/1','autorouting','on');
 add_line(sys,'PSCurrent/1','EmulatorInputMux/2','autorouting','on');
 add_line(sys,'tempPinsK/1','EmulatorInputMux/3','autorouting','on');
 add_line(sys,'tDieK/1','EmulatorInputMux/4','autorouting','on');
-add_line(sys,'PSVBAT/1','EmulatorInputMux/5','autorouting','on');
-add_line(sys,'PSVPACK/1','EmulatorInputMux/6','autorouting','on');
+add_line(sys,'PSVPACK/1','EmulatorInputMux/5','autorouting','on');   % -> u[27] = PACK pin
+add_line(sys,'PSVPACK/1','EmulatorInputMux/6','autorouting','on');   % -> u[28] = LD pin
 add_line(sys,'LoadRemovedDelay/1','EmulatorInputMux/7','autorouting','on');
 add_line(sys,'hostWr/1','HostWrDouble/1','autorouting','on');
 add_line(sys,'HostWrDouble/1','EmulatorInputMux/8','autorouting','on');
